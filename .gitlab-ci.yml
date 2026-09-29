@@ -1,0 +1,88 @@
+# CI for lean-spec.
+#
+#   verify          `lake build` + `lake test` on merge requests, on the default
+#                   branch, and on tags. This is what turns the changelog's
+#                   standing claim -- builds clean, passes the suite -- into a
+#                   check rather than an assertion, and it runs on Linux, a
+#                   second platform from the macOS development machine. That
+#                   matters here: `native_decide` compiles and executes at each
+#                   of its use sites, so CI re-runs them, it does not re-read
+#                   them.
+#
+#   build-ci-image  Manual. Builds ci/Dockerfile and pushes it to this project's
+#                   Container Registry, then prints the digest to pin.
+#
+# The first pipeline needs no preparation: `verify` runs on a plain Debian image
+# and installs the toolchain named in `lean-toolchain`, cached between runs.
+# Once `build-ci-image` has run once, set the project variable LEAN_CI_IMAGE to
+# the pushed image -- pinned by digest, e.g.
+#
+#   registry.gitlab.com/bevisera/lean-spec/ci:v4.33.0@sha256:<digest>
+#
+# and the install step becomes a no-op.
+
+stages:
+  - verify
+  - image
+
+variables:
+  # Overridden by a project variable once the pinned image exists.
+  LEAN_CI_IMAGE: "debian:bookworm-slim"
+  # GitLab caches only paths under $CI_PROJECT_DIR, so elan has to live there.
+  # The import firewall scans LeanSpec/ only, so this is invisible to the suite.
+  ELAN_HOME: "$CI_PROJECT_DIR/.elan"
+  GIT_DEPTH: "50"
+
+verify:
+  stage: verify
+  image: $LEAN_CI_IMAGE
+  interruptible: true
+  timeout: 45m
+  cache:
+    key:
+      files:
+        - lean-toolchain
+    paths:
+      - .elan/
+  before_script:
+    - export PATH="$ELAN_HOME/bin:$PATH"
+    - |
+      if ! command -v cc > /dev/null 2>&1; then
+        apt-get update
+        apt-get install -y --no-install-recommends ca-certificates curl git build-essential
+        rm -rf /var/lib/apt/lists/*
+      fi
+    - |
+      if ! command -v lake > /dev/null 2>&1; then
+        curl -sSfL https://elan.lean-lang.org/elan-init.sh \
+          | sh -s -- -y --default-toolchain "$(cat lean-toolchain)"
+      fi
+  script:
+    - lean --version
+    - lake --version
+    - lake build
+    - lake test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+build-ci-image:
+  stage: image
+  image: docker:27-cli
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  rules:
+    - when: manual
+      allow_failure: true
+  script:
+    - TOOLCHAIN="$(cat lean-toolchain)"
+    - TAG="${TOOLCHAIN##*:}"
+    - IMAGE="$CI_REGISTRY_IMAGE/ci:$TAG"
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build --build-arg "LEAN_TOOLCHAIN=$TOOLCHAIN" -t "$IMAGE" ci
+    - docker push "$IMAGE"
+    # Pin LEAN_CI_IMAGE to this, not to the tag.
+    - docker image inspect "$IMAGE" --format 'pin LEAN_CI_IMAGE to {{index .RepoDigests 0}}'
