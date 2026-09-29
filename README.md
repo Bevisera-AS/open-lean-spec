@@ -82,6 +82,13 @@ lake test
 - Cross-file `#guard` needs `public meta import` of the module defining the checker.
 - A `/--` doc comment cannot sit immediately before a `spec` or `requirement` command; use a plain `/-` comment.
 
+## Source
+
+Canonical hosting is on GitLab (`bevisera/open-lean-spec`). A read-only
+[GitHub mirror](https://github.com/Bevisera-AS/open-lean-spec) is kept in sync
+for discovery and tooling that expects GitHub; open issues and PRs against GitLab
+when you can.
+
 ## License
 
 Copyright 2026 Bevisera AS. Licensed under the [Apache License, Version 2.0](LICENSE)
