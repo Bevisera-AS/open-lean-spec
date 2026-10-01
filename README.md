@@ -60,6 +60,35 @@ A `DesignUnit` carries its `surface` (web / native) and `target`; the pairing is
 enforced by a proof obligation (`TargetLang.allowedFor`). A web unit targeting
 Rust, or a native unit targeting TypeScript, cannot exist.
 
+## Verification statement
+
+`verification_statement <name> for <snapshot>` builds a **lean-spec-verified**
+mark during `lake build`. The mark is this statement of what the build proved.
+It names the method, not an endorsement. It lists:
+
+- the Lean toolchain that checked the proofs, and a spec digest (`fnv1a64:` over
+  the canonical spec source) naming the exact spec it was built from
+
+- what was proved — each design theorem that is a kernel theorem, and its proposition
+- which requirement id that theorem is attached to
+- the axioms `#print axioms` reports for those theorems (`collectAxioms`), including
+  `native_decide` auxiliary axioms
+- which obligations are still open — deferred scenarios, executable checks with no
+  kernel theorem, unresolved or ambiguous names, non-theorems, and anything that
+  depends on `sorryAx`
+
+The mark covers the proved rows, under the listed axioms. Open obligations stay
+listed and uncovered. `emitVerificationStatement` / `parseVerificationStatement`
+round-trip; `VerificationStatement.certifies` checks a stored text against that
+canonical statement.
+
+The digest is a fingerprint, not a signature: it detects a changed spec, it does
+not resist deliberate forgery. The statement cannot know its own commit; commit
+it next to the spec so the commit binds it.
+
+`lake build` elaborates the theme demo and produces `lean-spec-verification`,
+which prints that statement.
+
 ## Validate
 
 ```sh
@@ -74,6 +103,8 @@ lake test
 - `LeanSpec/Design.lean` — `DesignUnit`, `TargetLang`, `Surface`, and the allowed-target policy.
 - `LeanSpec/Elab/Spec.lean` — the `spec` command and requirement registry (`registeredSpecs%`).
 - `LeanSpec/Elab/Sugar.lean` — the human-facing `requirement` syntax.
+- `LeanSpec/Verification.lean` — the lean-spec-verified statement: toolchain, spec digest, proved rows, axioms, open obligations.
+- `LeanSpec/Elab/Verification.lean` — `verification_statement`, collecting axioms via `#print axioms`.
 - `LeanSpec/Demo/` — usage examples only. No solution content; requirements here exist to show the syntax.
 
 ## Notes (Lean 4.33)

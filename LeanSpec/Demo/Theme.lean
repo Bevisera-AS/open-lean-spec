@@ -33,7 +33,7 @@ derivation of the `#guard`. -/
 public theorem toggleDarkCheck_of_light (before : AppState) (h : before.theme = .light) :
     toggleDarkCheck before (toggleDark before) = true := by
   simp [toggleDarkCheck, toggleDark, h]
-  native_decide
+  decide
 
 public def themeSelection : Requirement := {
   id := ⟨"theme.selection", by native_decide⟩

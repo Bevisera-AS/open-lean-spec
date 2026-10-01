@@ -46,9 +46,10 @@ public structure Requirement where
 end Raw
 
 /-- `.executable` is a claim that a named checker (`#guard` or test) exists.
-It is not that checker's kernel derivation. Theme evidence is
-`LeanSpec.Demo.Theme.toggleDarkCheck_of_light`. A deferred reason is non-blank
-by construction. -/
+It is not that checker's kernel derivation. A verification statement treats it
+as an open obligation unless the requirement's design names a kernel theorem.
+Theme evidence is `LeanSpec.Demo.Theme.toggleDarkCheck_of_light`. A deferred
+reason is non-blank by construction. -/
 public inductive CheckStatus where
   | executable
   | deferred (reason : NonBlank)

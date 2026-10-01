@@ -18,6 +18,7 @@ import LeanSpec.Tests.Snapshot
 import LeanSpec.Tests.Skillset
 import LeanSpec.Tests.Catalog
 import LeanSpec.Tests.Design
+import LeanSpec.Tests.Verification
 
 open LeanSpec
 open LeanSpec.Demo.Theme
@@ -55,6 +56,8 @@ def main : IO UInt32 := do
   for (label, condition) in LeanSpec.Tests.Catalog.checks do
     assertTrue label condition
   for (label, condition) in LeanSpec.Tests.Design.checks do
+    assertTrue label condition
+  for (label, condition) in LeanSpec.Tests.Verification.checks do
     assertTrue label condition
   assertTrue "theme requirement well-formed" themeSelection.wellFormed
   assertTrue "theme design well-formed" themeSelectionDesign.wellFormed

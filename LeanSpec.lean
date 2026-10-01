@@ -21,6 +21,7 @@ public import LeanSpec.Codec.Snapshot
 public import LeanSpec.Codec.Precedent
 public import LeanSpec.Codec.Reflection
 public import LeanSpec.Emit
+public import LeanSpec.Verification
 public import LeanSpec.Store
 public import LeanSpec.WikiStore
 

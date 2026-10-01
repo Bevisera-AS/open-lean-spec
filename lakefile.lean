@@ -12,6 +12,7 @@ lean_lib LeanJson where
 
 @[default_target]
 lean_lib LeanSpec where
+  -- One `#[...]` literal. Combining arrays with `++` drops the expected `Glob` type.
   globs := #[
     `LeanSpec,
     `LeanSpec.Types,
@@ -28,13 +29,12 @@ lean_lib LeanSpec where
     `LeanSpec.WikiStore,
     `LeanSpec.Kb,
     .submodules `LeanSpec.KbAdapter,
-    `LeanSpec.Elab.Skill,
-    `LeanSpec.Elab.Spec,
-    `LeanSpec.Elab.Sugar,
+    .submodules `LeanSpec.Elab,
     .submodules `LeanSpec.Workflow,
     .submodules `LeanSpec.Codec,
     `LeanSpec.Store,
     `LeanSpec.Emit,
+    `LeanSpec.Verification,
     `LeanSpec.Demo.Theme,
     `LeanSpec.Demo.Archive,
     `LeanSpec.Demo.HumanAccept,
@@ -43,8 +43,14 @@ lean_lib LeanSpec where
     `LeanSpec.Demo.SpecSyntax,
     `LeanSpec.Demo.SugarSyntax,
     `LeanSpec.Demo.TargetLang,
-    `LeanSpec.Demo.TempConverter
+    `LeanSpec.Demo.TempConverter,
+    `LeanSpec.Demo.Verification
   ]
+
+/-- Prints the demo verification statements. Built by `lake build`. -/
+@[default_target]
+lean_exe «lean-spec-verification» where
+  root := `LeanSpec.Demo.PrintVerification
 
 @[default_target]
 lean_exe «lean-spec» where

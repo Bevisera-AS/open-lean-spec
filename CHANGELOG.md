@@ -10,6 +10,24 @@ axioms (`propext`, `Classical.choice`, `Quot.sound`) — no `sorry`, and `native
 is confined to constructing concrete values whose predicate the kernel cannot reduce
 (documented in `LeanSpec/Kb.lean`'s trust-boundary note).
 
+## [1.0.0] — 2026-10-01
+
+### Added
+- **Verification statement.** `verification_statement <name> for <snapshot>` is a
+  build artefact: what was proved, the requirement ids those proofs attach to, the
+  axioms `#print axioms` (`collectAxioms`) reports — including `native_decide`
+  auxiliary axioms — and the obligations still open. The `lean-spec-verified` mark
+  is that statement. It covers the proved rows only. `sorryAx` keeps a row outside
+  the mark. The canonical text round-trips (`emitVerificationStatement` /
+  `parseVerificationStatement`).
+- The statement names the **Lean toolchain** that checked the proofs and a
+  **spec digest** (`fnv1a64:` over the canonical spec source, `specDigestOf`).
+  A statement edited to claim another spec or toolchain no longer `certifies`.
+
+### Changed
+- The theme demo theorem `toggleDarkCheck_of_light` is now kernel-checked with
+  `decide` instead of `native_decide`; its statement lists only `propext`.
+
 ## [0.9.0] — 2026-08-31
 
 The **dependency-graph + boot-closure** epic, plus the clean split from the sibling
