@@ -10,6 +10,31 @@ axioms (`propext`, `Classical.choice`, `Quot.sound`) — no `sorry`, and `native
 is confined to constructing concrete values whose predicate the kernel cannot reduce
 (documented in `LeanSpec/Kb.lean`'s trust-boundary note).
 
+## [Unreleased]
+
+### Fixed
+- **The `requirement` sugar is now fail-closed.** An unknown `strength` word (e.g.
+  `strength wont`) used to become `shall` silently; it is now an error, as it already
+  was on the JSON wire. `strength shall` is matched explicitly instead of through
+  the fallback.
+- `check executable "…"` with a stray reason string is now an error instead of being
+  ignored.
+- Sugar errors are reported at the offending token with a plain message
+  (`check deferred` without a reason, unknown check kind, non-string field) instead
+  of "elaboration function for `requirementCmd` has not been implemented". The
+  handler is a command elaborator; a scenario missing a clause (e.g. no `then_`) is
+  a parse error only, no longer an array-index panic.
+- **Duplicate scenario names within one requirement** are rejected by the `spec`
+  command (and so by the sugar). Scenario names identify open obligations in the
+  verification statement, so two equal names could let one obligation hide another.
+
+### Added
+- `LeanSpec/Tests/Sugar.lean`: `#guard_msgs` regression tests pinning each rejected
+  sugar input and its message.
+
+### Changed
+- README states that the project is very much a work in progress.
+
 ## [1.0.0] — 2026-10-01
 
 ### Added

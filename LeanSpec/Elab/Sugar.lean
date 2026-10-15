@@ -55,12 +55,13 @@ Field words fall into two groups:
   and a non-reserved token cannot make the parser commit to entering such a
   group.
 
-The enumerated values (`must`/`should`, `executable`/`deferred`) are read as a
-plain `ident` and interpreted in the macro.
+The enumerated values (`must`/`shall`/`should`, `executable`/`deferred`) are read
+as a plain `ident` and interpreted in the elaborator; any other word is an error.
 
 Because `id`/`shall`/`strength` are non-reserved, the command cannot be matched
-with a command quotation pattern; the handler destructures the parsed node by
-`getArgs` index and is attached with `@[macro requirementCmd]`.
+with a command quotation pattern; the handler reads the parsed node by index
+(`stx[i]`, which yields `missing` rather than panicking) and is attached with
+`@[command_elab requirementCmd]`.
 -/
 
 open Lean Elab Command Term
@@ -92,72 +93,78 @@ syntax (name := requirementCmd) "requirement " ident " where "
     specScenario+ : command
 
 /-- Wrap a string-literal syntax into `⟨"...", by native_decide⟩`. -/
-private meta def proofStr (s : TSyntax `str) : MacroM (TSyntax `term) :=
+private meta def proofStr (s : TSyntax `str) : CommandElabM (TSyntax `term) :=
   `(⟨$s, by native_decide⟩)
 
-/-- Read a string literal out of a syntax node, or fail. -/
-private meta def asStr (stx : Syntax) : MacroM (TSyntax `str) :=
+/-- Read a string literal out of a syntax node, or fail at that node. -/
+private meta def asStr (what : String) (stx : Syntax) : CommandElabM (TSyntax `str) :=
   match stx.isStrLit? with
   | some _ => pure ⟨stx⟩
-  | none => Macro.throwUnsupported
+  | none => throwErrorAt stx "expected a string literal for {what}"
 
-/-- Interpret the optional `(&"strength " ident)?` group. Absent ⇒ `shall`. -/
-private meta def strengthTerm (grp : Syntax) : MacroM (TSyntax `term) :=
-  let args := grp.getArgs
-  if args.isEmpty then `(Strength.shall)
-  else
-    match (args.back!.getId).toString with
-    | "must" => `(Strength.must)
-    | "should" => `(Strength.should)
-    | _ => `(Strength.shall)
+/-- Interpret the optional `(&"strength " ident)?` group. Absent ⇒ `shall`.
+An unknown word is an error, as it is on the JSON wire. -/
+private meta def strengthTerm (grp : Syntax) : CommandElabM (TSyntax `term) := do
+  if grp.getNumArgs == 0 then return ← `(Strength.shall)
+  let word := grp[1]
+  match word.getId.toString with
+  | "must" => `(Strength.must)
+  | "shall" => `(Strength.shall)
+  | "should" => `(Strength.should)
+  | other => throwErrorAt word "unknown strength `{other}`; expected `must`, `shall` or `should`"
 
 /-- Build a `CheckStatus` term from the scenario `check` clause.
-`kindIdent` is `executable` or `deferred`; `reasonGrp` is the optional reason. -/
+`kindIdent` is `executable` or `deferred`; `reasonGrp` is the optional reason,
+required for `deferred` and refused for `executable`. -/
 private meta def checkTerm (kindIdent : Syntax) (reasonGrp : Syntax) :
-    MacroM (TSyntax `term) := do
+    CommandElabM (TSyntax `term) := do
+  let hasReason := reasonGrp.getNumArgs > 0
   match kindIdent.getId.toString with
-  | "executable" => `(CheckStatus.executable)
-  | "deferred" => do
-    let reasonArgs := reasonGrp.getArgs
-    if reasonArgs.isEmpty then
-      Macro.throwUnsupported  -- deferred requires a reason string
-    else
-      let ps ← proofStr (← asStr reasonArgs.back!)
-      `(CheckStatus.deferred $ps)
-  | _ => Macro.throwUnsupported
+  | "executable" =>
+    if hasReason then
+      throwErrorAt reasonGrp "`check executable` takes no reason; remove the string or use `check deferred`"
+    `(CheckStatus.executable)
+  | "deferred" =>
+    if !hasReason then
+      throwErrorAt kindIdent "`check deferred` needs a reason string, e.g. `check deferred \"no fixture yet\"`"
+    let ps ← proofStr (← asStr "the deferred reason" reasonGrp[0])
+    `(CheckStatus.deferred $ps)
+  | other =>
+    throwErrorAt kindIdent "unknown check kind `{other}`; expected `executable` or `deferred`"
 
 /-- Build a `Scenario.mk` term from a `specScenario` node. -/
-private meta def scenarioTerm (node : Syntax) : MacroM (TSyntax `term) := do
-  let args := node.getArgs
-  let namePs ← proofStr (← asStr args[1]!)
-  let givenGrp := args[2]!
+private meta def scenarioTerm (node : Syntax) : CommandElabM (TSyntax `term) := do
+  let namePs ← proofStr (← asStr "the scenario name" node[1])
+  let givenGrp := node[2]
   let givenStx : TSyntax `term ←
-    if givenGrp.getArgs.isEmpty then
+    if givenGrp.getNumArgs == 0 then
       `(none)
     else
       -- given group args: [ "given ", str ]
-      let ps ← proofStr (← asStr givenGrp.getArgs.back!)
+      let ps ← proofStr (← asStr "`given`" givenGrp[1])
       `(some $ps)
-  let whenPs ← proofStr (← asStr args[4]!)
-  let thenPs ← proofStr (← asStr args[6]!)
-  let checkStx ← checkTerm args[8]! args[9]!
+  let whenPs ← proofStr (← asStr "`when`" node[4])
+  let thenPs ← proofStr (← asStr "`then_`" node[6])
+  let checkStx ← checkTerm node[8] node[9]
   `(Scenario.mk $namePs $givenStx $whenPs $thenPs $checkStx)
 
-/- Macro for `requirementCmd`, attached by kind so we never need a quotation
-pattern over the non-reserved `id`/`shall`/`strength` tokens. -/
-@[macro requirementCmd]
-public meta def expandRequirement : Macro := fun stx => do
-  let args := stx.getArgs
-  let name : TSyntax `ident := ⟨args[1]!⟩
-  let idPs ← proofStr (← asStr args[4]!)
-  let shallPs ← proofStr (← asStr args[6]!)
-  let strengthStx ← strengthTerm args[7]!
-  let scenarioNodes := args[8]!.getArgs
+/- Elaborator for `requirementCmd`, attached by kind so we never need a quotation
+pattern over the non-reserved `id`/`shall`/`strength` tokens. Every failure is an
+error at the offending token; nothing falls back to a default. -/
+@[command_elab requirementCmd]
+public meta def elabRequirement : CommandElab := fun stx => do
+  -- The parser has already reported a syntax error on a partial node; elaborating
+  -- it would only add noise.
+  if stx.hasMissing then throwAbortCommand
+  let name : TSyntax `ident := ⟨stx[1]⟩
+  let idPs ← proofStr (← asStr "`id`" stx[4])
+  let shallPs ← proofStr (← asStr "`shall`" stx[6])
+  let strengthStx ← strengthTerm stx[7]
   let mut scenarioStxs : Array (TSyntax `term) := #[]
-  for sc in scenarioNodes do
+  for sc in stx[8].getArgs do
     scenarioStxs := scenarioStxs.push (← scenarioTerm sc)
-  `(spec $name :=
+  elabCommand (← `(command| spec $name :=
       Requirement.mk $idPs $shallPs $strengthStx
-        ⟨#[$scenarioStxs,*], by native_decide⟩)
+        ⟨#[$scenarioStxs,*], by native_decide⟩))
 
 end LeanSpec

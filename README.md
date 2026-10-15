@@ -2,6 +2,13 @@
 
 Teach agents to write requirements in **Lean 4** — not Markdown, not JSON.
 
+> **Status: very much a work in progress.** lean-spec is early, experimental
+> software. The surface syntax, store format and APIs still change between
+> releases, often without a migration path, and parts of the design are still
+> being worked out. Version numbers mark our own releases; they are not a
+> stability promise. Use it to explore the idea, and expect rough edges. Bug
+> reports are welcome.
+
 A requirement is a typed, proof-carrying Lean value. Blank fields, empty
 scenario lists, and malformed ids are compile errors, not lint warnings. A
 human-friendly `requirement` syntax keeps the source readable without giving up

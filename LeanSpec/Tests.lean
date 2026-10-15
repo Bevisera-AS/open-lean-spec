@@ -19,6 +19,7 @@ import LeanSpec.Tests.Skillset
 import LeanSpec.Tests.Catalog
 import LeanSpec.Tests.Design
 import LeanSpec.Tests.Verification
+import LeanSpec.Tests.Sugar
 
 open LeanSpec
 open LeanSpec.Demo.Theme

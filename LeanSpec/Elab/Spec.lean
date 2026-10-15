@@ -69,7 +69,8 @@ elab "registeredSpecs%" : term => unsafe do
 
 /-- Expand `spec name := { ... }` to a `Requirement` def and register it.
 
-Duplicate Lean names and duplicate `Requirement.id` values fail at elaboration.
+Duplicate Lean names, duplicate `Requirement.id` values and duplicate scenario
+names within one requirement fail at elaboration.
 Snapshot membership stays explicit; this command does not write the store. -/
 elab "spec " name:ident " := " body:term : command => unsafe do
   elabCommand (← `(command| public def $name : Requirement := $body))
@@ -83,6 +84,9 @@ elab "spec " name:ident " := " body:term : command => unsafe do
     throwError "duplicate requirement id `{value.id.value}` (already registered)"
   if !value.wellFormed then
     throwError "spec `{value.id.value}` is ill-formed"
+  if let some dup := (duplicateIds (value.scenarios.toArray.map (·.name.value)))[0]? then
+    throwError "duplicate scenario name `{dup}` in requirement `{value.id.value}`; \
+      scenario names identify verification obligations and must be unique"
   modifyEnv fun env => specExt.addEntry env (declName, value)
 
 end LeanSpec
