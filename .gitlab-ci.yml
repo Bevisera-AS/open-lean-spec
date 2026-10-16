@@ -1,7 +1,8 @@
 # CI for lean-spec.
 #
 #   verify          `lake build` (library plus both executables) and `lake test`
-#                   on merge requests, on the default branch, and on tags. This
+#                   on merge requests, on the default branch, on tags, and on
+#                   any branch via "Run pipeline" in the GitLab UI. This
 #                   turns the changelog's standing claim -- builds clean, passes
 #                   the suite -- into a check rather than an assertion, on Linux,
 #                   a second platform from the macOS development machine.
@@ -77,6 +78,8 @@ variables:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
+    # "Run pipeline" in the GitLab UI, on any branch.
+    - if: $CI_PIPELINE_SOURCE == "web"
 
 verify:
   extends: .lean-env
