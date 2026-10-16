@@ -11,25 +11,25 @@ public section
 
 /-- Experimental P1.5 change: one SHALL about where current spec lives. -/
 public def workingSnapshotPath : Requirement := {
-  id := ⟨"store.workingSnapshotPath", by native_decide⟩
-  shall := ⟨"The working spec snapshot is the local file `.lean-spec/Snapshot.lean`; writeSnapshot does not commit git.", by native_decide⟩
+  id := ⟨"store.workingSnapshotPath", by decide +kernel⟩
+  shall := ⟨"The working spec snapshot is the local file `.lean-spec/Snapshot.lean`; writeSnapshot does not commit git.", by decide +kernel⟩
   scenarios := ⟨#[{
-    name := ⟨"default path is local", by native_decide⟩
-    whenText := ⟨"a caller asks for the default snapshot path", by native_decide⟩
-    thenText := ⟨"the path is `.lean-spec/Snapshot.lean`", by native_decide⟩
+    name := ⟨"default path is local", by decide +kernel⟩
+    whenText := ⟨"a caller asks for the default snapshot path", by decide +kernel⟩
+    thenText := ⟨"the path is `.lean-spec/Snapshot.lean`", by decide +kernel⟩
     check := .executable
   }, {
-    name := ⟨"store is not a git object", by native_decide⟩
-    whenText := ⟨"writeSnapshot writes a snapshot", by native_decide⟩
-    thenText := ⟨"the path is not under `.git/`", by native_decide⟩
+    name := ⟨"store is not a git object", by decide +kernel⟩
+    whenText := ⟨"writeSnapshot writes a snapshot", by decide +kernel⟩
+    thenText := ⟨"the path is not under `.git/`", by decide +kernel⟩
     check := .executable
-  }], by native_decide⟩
+  }], by decide +kernel⟩
 }
 
 public def storePathChange : Change := {
-  id := ⟨"add-working-snapshot-path", by native_decide⟩
-  why := ⟨"Agents must know where current spec lives without treating git as the store.", by native_decide⟩
-  deltas := ⟨#[.added workingSnapshotPath], by native_decide⟩
+  id := ⟨"add-working-snapshot-path", by decide +kernel⟩
+  why := ⟨"Agents must know where current spec lives without treating git as the store.", by decide +kernel⟩
+  deltas := ⟨#[.added workingSnapshotPath], by decide +kernel⟩
 }
 
 #guard workingSnapshotPath.wellFormed

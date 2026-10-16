@@ -19,13 +19,13 @@ namespace LeanSpec.Demo.TargetLang
 open LeanSpec
 
 -- A web design unit must target TypeScript. The proof obligation is discharged
--- by `native_decide`; a wrong pairing would not compile.
+-- by `decide +kernel`; a wrong pairing would not compile.
 def webDashboard : DesignUnit := {
-  id := ⟨"page.dashboard", by native_decide⟩
+  id := ⟨"page.dashboard", by decide +kernel⟩
   surface := .web
   target := .typescript
-  interfaces := ⟨#[⟨"DashboardProps", by native_decide⟩], by native_decide⟩
-  tests := ⟨#[⟨"rendersLatestYear", by native_decide⟩], by native_decide⟩
+  interfaces := ⟨#[⟨"DashboardProps", by decide +kernel⟩], by decide +kernel⟩
+  tests := ⟨#[⟨"rendersLatestYear", by decide +kernel⟩], by decide +kernel⟩
 }
 
 #guard webDashboard.wellFormed
@@ -34,11 +34,11 @@ def webDashboard : DesignUnit := {
 
 -- A native design unit prefers Lean 4.
 def nativeCore : DesignUnit := {
-  id := ⟨"core.snapshot", by native_decide⟩
+  id := ⟨"core.snapshot", by decide +kernel⟩
   surface := .native
   target := .lean4
-  interfaces := ⟨#[⟨"SpecSnapshot", by native_decide⟩], by native_decide⟩
-  tests := ⟨#[⟨"archiveCheck", by native_decide⟩], by native_decide⟩
+  interfaces := ⟨#[⟨"SpecSnapshot", by decide +kernel⟩], by decide +kernel⟩
+  tests := ⟨#[⟨"archiveCheck", by decide +kernel⟩], by decide +kernel⟩
 }
 
 #guard nativeCore.wellFormed
@@ -46,11 +46,11 @@ def nativeCore : DesignUnit := {
 
 -- Rust is allowed on native (the type-checker accepts the proof obligation).
 def nativeRust : DesignUnit := {
-  id := ⟨"core.parser", by native_decide⟩
+  id := ⟨"core.parser", by decide +kernel⟩
   surface := .native
   target := .rust
-  interfaces := ⟨#[⟨"Parser", by native_decide⟩], by native_decide⟩
-  tests := ⟨#[⟨"parsesValidInput", by native_decide⟩], by native_decide⟩
+  interfaces := ⟨#[⟨"Parser", by decide +kernel⟩], by decide +kernel⟩
+  tests := ⟨#[⟨"parsesValidInput", by decide +kernel⟩], by decide +kernel⟩
 }
 
 #guard nativeRust.wellFormed
@@ -59,14 +59,14 @@ def nativeRust : DesignUnit := {
 /-
 The following would NOT compile — a web unit cannot target Rust, because
 `targetAllowed : AllowedTarget .web .rust` is `false = true`, which
-`native_decide` cannot prove:
+`decide +kernel` cannot prove:
 
   def bad : DesignUnit := {
-    id := ⟨"page.bad", by native_decide⟩
+    id := ⟨"page.bad", by decide +kernel⟩
     surface := .web
     target := .rust                       -- rejected by construction
-    interfaces := ⟨#[⟨"X", by native_decide⟩], by native_decide⟩
-    tests := ⟨#[⟨"t", by native_decide⟩], by native_decide⟩
+    interfaces := ⟨#[⟨"X", by decide +kernel⟩], by decide +kernel⟩
+    tests := ⟨#[⟨"t", by decide +kernel⟩], by decide +kernel⟩
   }
 -/
 

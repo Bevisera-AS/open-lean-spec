@@ -187,18 +187,18 @@ end
 /-! ## Worked examples (executable `#guard`s) -/
 
 private def nb (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : NonBlank := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : NonBlank := ⟨s, h⟩
 
 private def rid (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : ReflectionId := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : ReflectionId := ⟨s, h⟩
 
 private def runid (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : RunId := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : RunId := ⟨s, h⟩
 
 private def exR : Reflection :=
   { id := rid "wiki.read-first", kind := .strategy
     learning := nb "read the snapshot before proposing a delta"
-    derivedFrom := ⟨#[runid "run-1", runid "run-2"], by native_decide⟩
+    derivedFrom := ⟨#[runid "run-1", runid "run-2"], by decide +kernel⟩
     promoted := .skill }
 
 -- Domain round-trip: encode then decode recovers the same reflection (compared by

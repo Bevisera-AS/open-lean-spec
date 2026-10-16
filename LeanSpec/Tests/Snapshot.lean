@@ -44,7 +44,7 @@ def checks : Array (String × Bool) := #[
     | .error _ => false),
   ("unlinked design keeps its path",
     match SpecSnapshot.ofDesigned "snapshot.requirements" #[themeSelection]
-        #[{ themeSelectionDesign with id := ⟨"theme.missing", by native_decide⟩ }] with
+        #[{ themeSelectionDesign with id := ⟨"theme.missing", by decide +kernel⟩ }] with
     | .error error => error.issue == .unlinkedDesign
     | .ok _ => false),
   ("attachDesign refuses a missing requirement",

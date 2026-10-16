@@ -59,11 +59,11 @@ public theorem roundTripCheck_holds :
       roundTripCheck 0 = true ∧
       roundTripCheck (-273) = true ∧
       roundTripCheck (1 / 3) = true := by
-  refine ⟨?_, ?_, ?_, ?_⟩ <;> native_decide
+  refine ⟨?_, ?_, ?_, ?_⟩ <;> decide +kernel
 
 /-- The named reference points convert correctly (kernel-checked). -/
 public theorem referencePointsCheck_holds : referencePointsCheck = true := by
-  native_decide
+  decide +kernel
 
 -- ─── Requirement via the library's sugar ─────────────────────────────────────
 
@@ -111,7 +111,7 @@ requirement temperatureConverter where
 -- ─── Design unit: native surface, Lean 4 target ──────────────────────────────
 
 /-- Native Lean 4 implementation artifact. The target/surface pairing is
-discharged by the default `native_decide` proof obligation; a web/Rust or
+discharged by the default `decide +kernel` proof obligation; a web/Rust or
 native/TypeScript pairing could not be constructed.
 
 Note: `id := ...` below uses the plain field name — no escaping needed. This is
@@ -122,22 +122,22 @@ public def temperatureConverterDesign : DesignUnit := {
   surface := .native
   target := .lean4
   interfaces := ⟨#[
-    ⟨"celsiusToFahrenheit", by native_decide⟩,
-    ⟨"fahrenheitToCelsius", by native_decide⟩
-  ], by native_decide⟩
+    ⟨"celsiusToFahrenheit", by decide +kernel⟩,
+    ⟨"fahrenheitToCelsius", by decide +kernel⟩
+  ], by decide +kernel⟩
   functions := #[
-    ⟨"celsiusToFahrenheit", by native_decide⟩,
-    ⟨"fahrenheitToCelsius", by native_decide⟩,
-    ⟨"roundTripCheck", by native_decide⟩,
-    ⟨"referencePointsCheck", by native_decide⟩
+    ⟨"celsiusToFahrenheit", by decide +kernel⟩,
+    ⟨"fahrenheitToCelsius", by decide +kernel⟩,
+    ⟨"roundTripCheck", by decide +kernel⟩,
+    ⟨"referencePointsCheck", by decide +kernel⟩
   ]
   tests := ⟨#[
-    ⟨"referencePointsCheck", by native_decide⟩,
-    ⟨"roundTripCheck", by native_decide⟩
-  ], by native_decide⟩
+    ⟨"referencePointsCheck", by decide +kernel⟩,
+    ⟨"roundTripCheck", by decide +kernel⟩
+  ], by decide +kernel⟩
   theorems := #[
-    ⟨"referencePointsCheck_holds", by native_decide⟩,
-    ⟨"roundTripCheck_holds", by native_decide⟩
+    ⟨"referencePointsCheck_holds", by decide +kernel⟩,
+    ⟨"roundTripCheck_holds", by decide +kernel⟩
   ]
 }
 

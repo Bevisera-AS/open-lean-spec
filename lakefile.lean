@@ -44,15 +44,21 @@ lean_lib LeanSpec where
     `LeanSpec.Demo.SugarSyntax,
     `LeanSpec.Demo.TargetLang,
     `LeanSpec.Demo.TempConverter,
-    `LeanSpec.Demo.Verification
+    `LeanSpec.Demo.Verification,
+    -- Test modules, so `lake check` exports and re-checks them too. The driver
+    -- `LeanSpec.Tests` defines `main` and stays out (`.submodules` excludes it).
+    .submodules `LeanSpec.Tests
   ]
 
-/-- Prints the demo verification statements. Built by `lake build`. -/
-@[default_target]
+/- The executables are not default targets. `lake check` exports every default
+target into one environment, and each executable root defines `main`, so two of
+them cannot be imported together. Build them by name:
+`lake build lean-spec lean-spec-verification`. -/
+
+/-- Prints the demo verification statements. -/
 lean_exe «lean-spec-verification» where
   root := `LeanSpec.Demo.PrintVerification
 
-@[default_target]
 lean_exe «lean-spec» where
   root := `LeanSpec.Query
 

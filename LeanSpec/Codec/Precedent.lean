@@ -118,23 +118,23 @@ public def acceptPrecedentedChangeString (s : String) :
 -- Domain round-trip: encode a precedented change, decode it back.
 #guard
   let req : Requirement := {
-    id := ⟨"cap.overview", by native_decide⟩
-    shall := ⟨"show a summary dashboard", by native_decide⟩
+    id := ⟨"cap.overview", by decide +kernel⟩
+    shall := ⟨"show a summary dashboard", by decide +kernel⟩
     scenarios := ⟨#[{
-      name := ⟨"n", by native_decide⟩
-      whenText := ⟨"w", by native_decide⟩
-      thenText := ⟨"t", by native_decide⟩
+      name := ⟨"n", by decide +kernel⟩
+      whenText := ⟨"w", by decide +kernel⟩
+      thenText := ⟨"t", by decide +kernel⟩
       check := .executable
-    }], by native_decide⟩
+    }], by decide +kernel⟩
   }
   let c : Change := {
-    id := ⟨"tighten-overview", by native_decide⟩
-    why := ⟨"overview subsumes detail", by native_decide⟩
-    deltas := ⟨#[.modified req], by native_decide⟩
+    id := ⟨"tighten-overview", by decide +kernel⟩
+    why := ⟨"overview subsumes detail", by decide +kernel⟩
+    deltas := ⟨#[.modified req], by decide +kernel⟩
   }
   let sup : Supersedes :=
-    ⟨⟨"cap.overview", by native_decide⟩, ⟨"cap.detail", by native_decide⟩,
-      ⟨"the dashboard replaces the detail table", by native_decide⟩, by native_decide⟩
+    ⟨⟨"cap.overview", by decide +kernel⟩, ⟨"cap.detail", by decide +kernel⟩,
+      ⟨"the dashboard replaces the detail table", by decide +kernel⟩, by decide +kernel⟩
   let pc : PrecedentedChange := { change := c, precedents := #[sup] }
   match acceptPrecedentedChange (encodePrecedentedChange pc) with
   | .ok pc2 => pc2.change == pc.change && pc2.precedents == pc.precedents

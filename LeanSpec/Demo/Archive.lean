@@ -13,45 +13,45 @@ open LeanSpec.Demo.Theme
 public section
 
 public def themeContrast : Requirement := {
-  id := ⟨"theme.contrast", by native_decide⟩
-  shall := ⟨"Dark theme documents a minimum contrast target.", by native_decide⟩
+  id := ⟨"theme.contrast", by decide +kernel⟩
+  shall := ⟨"Dark theme documents a minimum contrast target.", by decide +kernel⟩
   strength := .should
   scenarios := ⟨#[{
-    name := ⟨"contrast stated", by native_decide⟩
-    whenText := ⟨"dark theme is active", by native_decide⟩
-    thenText := ⟨"contrast is recorded as a requirement", by native_decide⟩
-    check := .deferred ⟨"no pixel checker yet", by native_decide⟩
-  }], by native_decide⟩
+    name := ⟨"contrast stated", by decide +kernel⟩
+    whenText := ⟨"dark theme is active", by decide +kernel⟩
+    thenText := ⟨"contrast is recorded as a requirement", by decide +kernel⟩
+    check := .deferred ⟨"no pixel checker yet", by decide +kernel⟩
+  }], by decide +kernel⟩
 }
 
 public def themeSelectionV2 : Requirement := {
   id := themeSelection.id
-  shall := ⟨themeSelection.shall.value ++ " The choice persists across restart.", by native_decide⟩
+  shall := ⟨themeSelection.shall.value ++ " The choice persists across restart.", by decide +kernel⟩
   strength := themeSelection.strength
   scenarios := themeSelection.scenarios.push {
-    name := ⟨"persist across restart", by native_decide⟩
-    given? := some ⟨"the user already chose dark", by native_decide⟩
-    whenText := ⟨"the user restarts the app", by native_decide⟩
-    thenText := ⟨"the app opens in dark mode", by native_decide⟩
-    check := .deferred ⟨"no persistence fixture yet", by native_decide⟩
+    name := ⟨"persist across restart", by decide +kernel⟩
+    given? := some ⟨"the user already chose dark", by decide +kernel⟩
+    whenText := ⟨"the user restarts the app", by decide +kernel⟩
+    thenText := ⟨"the app opens in dark mode", by decide +kernel⟩
+    check := .deferred ⟨"no persistence fixture yet", by decide +kernel⟩
   }
 }
 
 public def initialSnapshot : SpecSnapshot := {
   requirements := #[themeSelection]
-  uniqueIds := by native_decide
+  uniqueIds := by decide +kernel
   designs := #[themeSelectionDesign]
-  uniqueDesignIds := by native_decide
-  designsLinked := by native_decide
+  uniqueDesignIds := by decide +kernel
+  designsLinked := by decide +kernel
 }
 
 public def darkModeChange : Change := {
-  id := ⟨"dark-mode-v2", by native_decide⟩
-  why := ⟨"Persist theme choice and record contrast.", by native_decide⟩
+  id := ⟨"dark-mode-v2", by decide +kernel⟩
+  why := ⟨"Persist theme choice and record contrast.", by decide +kernel⟩
   deltas := ⟨#[
     .modified themeSelectionV2,
     .added themeContrast
-  ], by native_decide⟩
+  ], by decide +kernel⟩
 }
 
 public def archived? : Except ArchiveError SpecSnapshot :=

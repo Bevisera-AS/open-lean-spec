@@ -131,25 +131,25 @@ public inductive PromotionTarget where
 
 #guard
   let step : TraceStep := {
-    timestamp := ⟨"2025-01-15T10:30:00Z", by native_decide⟩
+    timestamp := ⟨"2025-01-15T10:30:00Z", by decide +kernel⟩
     kind := .reasoning
-    content := ⟨"Reading the snapshot to understand current state", by native_decide⟩
-    cites := #[⟨"demo.requirement", by native_decide⟩]
+    content := ⟨"Reading the snapshot to understand current state", by decide +kernel⟩
+    cites := #[⟨"demo.requirement", by decide +kernel⟩]
   }
   step.wellFormed
 
 #guard
   let trace : AgentTrace := {
-    runId := ⟨"run-001", by native_decide⟩
-    changeId := some ⟨"demo.requirement", by native_decide⟩
-    model := ⟨"claude-sonnet-4-20250514", by native_decide⟩
+    runId := ⟨"run-001", by decide +kernel⟩
+    changeId := some ⟨"demo.requirement", by decide +kernel⟩
+    model := ⟨"claude-sonnet-4-20250514", by decide +kernel⟩
     steps := ⟨#[{
-      timestamp := ⟨"2025-01-15T10:30:00Z", by native_decide⟩
+      timestamp := ⟨"2025-01-15T10:30:00Z", by decide +kernel⟩
       kind := .decision
-      content := ⟨"Chose to add a new scenario for the edge case", by native_decide⟩
-      cites := #[⟨"demo.requirement", by native_decide⟩]
-    }], by native_decide⟩
-    outcome := .completed #[⟨"LeanSpec/Demo/SpecSyntax.lean", by native_decide⟩]
+      content := ⟨"Chose to add a new scenario for the edge case", by decide +kernel⟩
+      cites := #[⟨"demo.requirement", by decide +kernel⟩]
+    }], by decide +kernel⟩
+    outcome := .completed #[⟨"LeanSpec/Demo/SpecSyntax.lean", by decide +kernel⟩]
   }
   trace.wellFormed
 

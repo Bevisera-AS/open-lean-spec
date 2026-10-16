@@ -23,8 +23,8 @@ public structure SpecSnapshot where
   requirements : Array Requirement
   uniqueIds : UniqueRequirementIds requirements
   designs : Array DesignUnit := #[]
-  uniqueDesignIds : UniqueDesignIds designs := by native_decide
-  designsLinked : DesignsLinked requirements designs := by native_decide
+  uniqueDesignIds : UniqueDesignIds designs := by decide +kernel
+  designsLinked : DesignsLinked requirements designs := by decide +kernel
   deriving Repr
 
 /-- Equality deliberately ignores proof terms; two snapshots compare by payload. -/
@@ -125,7 +125,7 @@ public theorem of_complete (snapshot : SpecSnapshot) (path : String) :
     exact absurd snapshot.uniqueIds h
 
 public def empty : SpecSnapshot :=
-  ⟨#[], by native_decide, #[], by native_decide, by native_decide⟩
+  ⟨#[], by decide +kernel, #[], by decide +kernel, by decide +kernel⟩
 
 end SpecSnapshot
 
@@ -349,7 +349,7 @@ public def SpecSnapshot.applyDelta (s : SpecSnapshot) (d : Delta) : Except Archi
     if h : s.has r.id.value then
       .error (.duplicateId r.id.value)
     else
-      .ok ⟨s.requirements.push r, SpecSnapshot.unique_push s r (eq_false_of_ne_true h),
+      .ok ⟨s.requirements.push r, SpecSnapshot.unique_push s r (Bool.eq_false_of_ne_true h),
         s.designs, s.uniqueDesignIds, SpecSnapshot.linked_push s r⟩
   | .modified r =>
     if _h : s.has r.id.value then
@@ -379,10 +379,10 @@ public def SpecSnapshot.applyDelta (s : SpecSnapshot) (d : Delta) : Except Archi
           s.designs.map fun d =>
             if d.id == move.frm then { d with id := move.to } else d
         let nextDesigns := DesignUnit.sync nextReqs renamedDesigns
-        .ok ⟨nextReqs, SpecSnapshot.unique_rename s move hFrom (eq_false_of_ne_true hTo),
+        .ok ⟨nextReqs, SpecSnapshot.unique_rename s move hFrom (Bool.eq_false_of_ne_true hTo),
           nextDesigns,
           SpecSnapshot.unique_sync nextReqs renamedDesigns
-            (SpecSnapshot.unique_rename_designs s move (eq_false_of_ne_true hTo)),
+            (SpecSnapshot.unique_rename_designs s move (Bool.eq_false_of_ne_true hTo)),
           SpecSnapshot.linked_sync nextReqs renamedDesigns⟩
     else
       .error (.missingId move.frm.value)
@@ -397,7 +397,7 @@ public theorem SpecSnapshot.applyDelta_added
   · contradiction
   · next hNe =>
     cases h
-    exact ⟨eq_false_of_ne_true hNe, rfl⟩
+    exact ⟨Bool.eq_false_of_ne_true hNe, rfl⟩
 
 /-- Successful modify replaces the requirement with that id. -/
 public theorem SpecSnapshot.applyDelta_modified
@@ -441,7 +441,7 @@ public theorem SpecSnapshot.applyDelta_renamed
     · contradiction
     · next hTo =>
       cases h
-      exact ⟨hFrom, eq_false_of_ne_true hTo, rfl⟩
+      exact ⟨hFrom, Bool.eq_false_of_ne_true hTo, rfl⟩
   · contradiction
 
 public def SpecSnapshot.applyDeltas (s : SpecSnapshot) (deltas : Array Delta) :

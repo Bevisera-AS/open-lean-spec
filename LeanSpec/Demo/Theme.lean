@@ -35,17 +35,17 @@ public theorem toggleDarkCheck_of_light (before : AppState) (h : before.theme = 
   simp [toggleDarkCheck, toggleDark, h]
   decide
 
-public def themeSelection : Requirement := {
-  id := ⟨"theme.selection", by native_decide⟩
-  shall := ⟨"The app lets users switch between light and dark themes, defaulting to system preference.", by native_decide⟩
+@[expose] public def themeSelection : Requirement := {
+  id := ⟨"theme.selection", by decide +kernel⟩
+  shall := ⟨"The app lets users switch between light and dark themes, defaulting to system preference.", by decide +kernel⟩
   strength := .shall
   scenarios := ⟨#[{
-    name := ⟨"toggle dark", by native_decide⟩
-    given? := some ⟨"the app is in light mode", by native_decide⟩
-    whenText := ⟨"the user clicks the theme toggle", by native_decide⟩
-    thenText := ⟨"the app switches to dark mode and persists the choice", by native_decide⟩
+    name := ⟨"toggle dark", by decide +kernel⟩
+    given? := some ⟨"the app is in light mode", by decide +kernel⟩
+    whenText := ⟨"the user clicks the theme toggle", by decide +kernel⟩
+    thenText := ⟨"the app switches to dark mode and persists the choice", by decide +kernel⟩
     check := .executable
-  }], by native_decide⟩
+  }], by decide +kernel⟩
 }
 
 #guard themeSelection.wellFormed
@@ -55,18 +55,18 @@ public def themeSelection : Requirement := {
   let after := toggleDark before
   toggleDarkCheck before after
 
-public def themeSelectionDesign : DesignUnit := {
+@[expose] public def themeSelectionDesign : DesignUnit := {
   id := themeSelection.id
   interfaces := ⟨#[
-    ⟨"Theme", by native_decide⟩,
-    ⟨"AppState", by native_decide⟩
-  ], by native_decide⟩
+    ⟨"Theme", by decide +kernel⟩,
+    ⟨"AppState", by decide +kernel⟩
+  ], by decide +kernel⟩
   functions := #[
-    ⟨"toggleDark", by native_decide⟩,
-    ⟨"toggleDarkCheck", by native_decide⟩
+    ⟨"toggleDark", by decide +kernel⟩,
+    ⟨"toggleDarkCheck", by decide +kernel⟩
   ]
-  tests := ⟨#[⟨"toggleDarkCheck", by native_decide⟩], by native_decide⟩
-  theorems := #[⟨"toggleDarkCheck_of_light", by native_decide⟩]
+  tests := ⟨#[⟨"toggleDarkCheck", by decide +kernel⟩], by decide +kernel⟩
+  theorems := #[⟨"toggleDarkCheck_of_light", by decide +kernel⟩]
 }
 
 #guard themeSelectionDesign.wellFormed

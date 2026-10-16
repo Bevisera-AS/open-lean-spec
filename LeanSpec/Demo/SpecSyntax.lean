@@ -10,14 +10,14 @@ namespace LeanSpec.Demo.SpecSyntax
 open LeanSpec
 
 spec demoRequirement := {
-  id := ⟨"demo.requirement", by native_decide⟩
-  shall := ⟨"The spec command elaborates a Requirement.", by native_decide⟩
+  id := ⟨"demo.requirement", by decide +kernel⟩
+  shall := ⟨"The spec command elaborates a Requirement.", by decide +kernel⟩
   scenarios := ⟨#[{
-    name := ⟨"command elaborates", by native_decide⟩
-    whenText := ⟨"a requirement is declared with spec", by native_decide⟩
-    thenText := ⟨"it inhabits Requirement and is registered", by native_decide⟩
+    name := ⟨"command elaborates", by decide +kernel⟩
+    whenText := ⟨"a requirement is declared with spec", by decide +kernel⟩
+    thenText := ⟨"it inhabits Requirement and is registered", by decide +kernel⟩
     check := .executable
-  }], by native_decide⟩
+  }], by decide +kernel⟩
 }
 
 #guard demoRequirement.wellFormed

@@ -14,6 +14,21 @@ scenario lists, and malformed ids are compile errors, not lint warnings. A
 human-friendly `requirement` syntax keeps the source readable without giving up
 the guarantees.
 
+## Background and naming
+
+lean-spec is inspired by [OpenSpec](https://github.com/Fission-AI/OpenSpec), a
+spec-driven development framework for AI coding assistants. We follow its workflow:
+propose a change as deltas against the current spec, apply it, then archive it into
+the spec. OpenSpec keeps those specs in Markdown. lean-spec keeps them as typed Lean
+values, so the checks on them are compile errors and kernel-checked proofs.
+
+The name clashes with
+[`paulch42/lean-spec`](https://github.com/paulch42/lean-spec), "Program Specification
+in Lean 4", a tutorial on using Lean to specify *what* a program must achieve, with
+worked examples. The two projects are unrelated and have different goals. That one
+teaches formal specification in Lean. This one is a toolkit for keeping a product's
+requirements, and an agent's changes to them, as proof-carrying Lean values.
+
 ## Why Lean, not Markdown
 
 - **Fail-closed.** A `Requirement` with no scenarios cannot be constructed. The
@@ -93,15 +108,30 @@ The digest is a fingerprint, not a signature: it detects a changed spec, it does
 not resist deliberate forgery. The statement cannot know its own commit; commit
 it next to the spec so the commit binds it.
 
-`lake build` elaborates the theme demo and produces `lean-spec-verification`,
-which prints that statement.
+`lake build` elaborates the theme demo. `lake build lean-spec-verification` builds
+the executable that prints that statement.
 
 ## Validate
 
 ```sh
-lake build
+lake build                                   # library, demos, test modules
+lake build lean-spec lean-spec-verification  # the two executables
 lake test
+lake check --paranoid                        # Linux only; see below
 ```
+
+There is no `native_decide` in lean-spec: every proof, including those on concrete
+literals, is checked by the Lean kernel (`decide +kernel`). Under Lean 4.35.0,
+`lake check --paranoid` accepts the development, sandboxed, with all six bundled
+checkers, including the verified kernels con-leche and con-ron. CI runs it on every
+merge request, on `main` and on tags.
+
+`lake check` sandboxes the build with `bwrap`, so it needs Linux user namespaces. In
+Docker that means `--privileged`; on Ubuntu 24.04 it means lifting AppArmor's
+`kernel.apparmor_restrict_unprivileged_userns`. Keep the Lean toolchain outside the
+project directory, or `lake check` stalls at "Resolving dependencies".
+[`docs/lake-check-paranoid-report.md`](docs/lake-check-paranoid-report.md) records
+what the checkers found, why, and how the CI job is set up.
 
 ## Layout
 
@@ -114,9 +144,13 @@ lake test
 - `LeanSpec/Elab/Verification.lean` — `verification_statement`, collecting axioms via `#print axioms`.
 - `LeanSpec/Demo/` — usage examples only. No solution content; requirements here exist to show the syntax.
 
-## Notes (Lean 4.33)
+## Notes (Lean 4.35)
 
 - After `module`, no doc comment before `import`.
+- Write decidable predicates over `List` (`s.toList.any …`, `arr.toList.all …`), not
+  `String.any`/`splitOn` or `Array.all`/`any`. The kernel cannot evaluate the latter,
+  so `decide +kernel` would get stuck. Mark definitions that other modules' proofs
+  unfold `@[expose]`.
 - Cross-file `#guard` needs `public meta import` of the module defining the checker.
 - A `/--` doc comment cannot sit immediately before a `spec` or `requirement` command; use a plain `/-` comment.
 

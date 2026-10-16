@@ -36,7 +36,7 @@ requirement overviewDashboard where
     check executable
 ```
 
-Each string literal is wrapped into the proof-carrying `⟨"...", by native_decide⟩`
+Each string literal is wrapped into the proof-carrying `⟨"...", by decide +kernel⟩`
 form, so a blank field is a compile error just as with the raw literals.
 
 ## Token reservation strategy
@@ -92,9 +92,9 @@ syntax (name := requirementCmd) "requirement " ident " where "
     (&"strength " ident)?
     specScenario+ : command
 
-/-- Wrap a string-literal syntax into `⟨"...", by native_decide⟩`. -/
+/-- Wrap a string-literal syntax into `⟨"...", by decide +kernel⟩`. -/
 private meta def proofStr (s : TSyntax `str) : CommandElabM (TSyntax `term) :=
-  `(⟨$s, by native_decide⟩)
+  `(⟨$s, by decide +kernel⟩)
 
 /-- Read a string literal out of a syntax node, or fail at that node. -/
 private meta def asStr (what : String) (stx : Syntax) : CommandElabM (TSyntax `str) :=
@@ -165,6 +165,6 @@ public meta def elabRequirement : CommandElab := fun stx => do
     scenarioStxs := scenarioStxs.push (← scenarioTerm sc)
   elabCommand (← `(command| spec $name :=
       Requirement.mk $idPs $shallPs $strengthStx
-        ⟨#[$scenarioStxs,*], by native_decide⟩))
+        ⟨#[$scenarioStxs,*], by decide +kernel⟩))
 
 end LeanSpec

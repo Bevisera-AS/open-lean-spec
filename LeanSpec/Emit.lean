@@ -31,7 +31,7 @@ public def emitQuoted (s : String) : String :=
   "\"" ++ escapeLeanString s ++ "\""
 
 public def emitProofString (s : String) : String :=
-  s!"⟨{emitQuoted s}, by native_decide⟩"
+  s!"⟨{emitQuoted s}, by decide +kernel⟩"
 
 public def emitStrength : Strength → String
   | .shall => ".shall"
@@ -64,7 +64,7 @@ public def emitRequirement (r : Requirement) : String :=
     s!"    strength := {emitStrength r.strength}\n" ++
     "    scenarios := ⟨#[" ++
     (if r.scenarios.size == 0 then "" else "\n    " ++ scenarios ++ "\n    ") ++
-    "], by native_decide⟩\n" ++
+    "], by decide +kernel⟩\n" ++
     "  }"
 
 public def emitNonBlankArray (xs : Array NonBlank) : String :=
@@ -72,7 +72,7 @@ public def emitNonBlankArray (xs : Array NonBlank) : String :=
   else "#[" ++ joinSep ", " (xs.toList.map fun n => emitProofString n.value) ++ "]"
 
 public def emitNonEmptyNonBlank (xs : NonEmptyArray NonBlank) : String :=
-  "⟨" ++ emitNonBlankArray xs.toArray ++ ", by native_decide⟩"
+  "⟨" ++ emitNonBlankArray xs.toArray ++ ", by decide +kernel⟩"
 
 public def emitSurface : Surface → String
   | .web => ".web"
@@ -90,7 +90,7 @@ public def emitDesignUnit (d : DesignUnit) : String :=
     s!"    id := {emitProofString d.id.value}\n" ++
     s!"    surface := {emitSurface d.surface}\n" ++
     s!"    target := {emitTarget d.target}\n" ++
-    s!"    targetAllowed := by native_decide\n" ++
+    s!"    targetAllowed := by decide +kernel\n" ++
     s!"    interfaces := {emitNonEmptyNonBlank d.interfaces}\n" ++
     s!"    functions := {emitNonBlankArray d.functions}\n" ++
     s!"    tests := {emitNonEmptyNonBlank d.tests}\n" ++
@@ -116,10 +116,10 @@ public def emitSnapshotSource (s : SpecSnapshot) : String :=
     "namespace LeanSpec.GeneratedSnapshot\n\n" ++
     "def snapshot : SpecSnapshot := {\n" ++
     s!"  requirements := {reqs}\n" ++
-    "  uniqueIds := by native_decide\n" ++
+    "  uniqueIds := by decide +kernel\n" ++
     s!"  designs := {des}\n" ++
-    "  uniqueDesignIds := by native_decide\n" ++
-    "  designsLinked := by native_decide\n" ++
+    "  uniqueDesignIds := by decide +kernel\n" ++
+    "  designsLinked := by decide +kernel\n" ++
     "}\n\n" ++
     "end LeanSpec.GeneratedSnapshot\n"
 
@@ -131,6 +131,14 @@ private def eat (tok : String) (cs : List Char) : Option (List Char) :=
   let t := tok.toList
   let cs := skipWs cs
   if cs.take t.length == t then some (cs.drop t.length) else none
+
+/-- A generated proof obligation. The emitter writes `by decide +kernel` (no axiom
+beyond the kernel); stores written before 1.1.0 carry `by native_decide`, which still
+parses so they load. -/
+private def eatProof (cs : List Char) : Option (List Char) :=
+  match eat "by decide +kernel" cs with
+  | some cs => some cs
+  | none => eat "by native_decide" cs
 
 private def fail (detail : String) : Except DecodeError α :=
   .error (.illFormed "snapshot.lean" detail)
@@ -157,9 +165,9 @@ private def parseProofString (cs : List Char) : Except DecodeError (String × Li
   let cs ← match eat "," cs with
     | some cs => pure cs
     | none => fail "expected comma in proof string"
-  let cs ← match eat "by native_decide" cs with
+  let cs ← match eatProof cs with
     | some cs => pure cs
-    | none => fail "expected `by native_decide`"
+    | none => fail "expected `by decide +kernel`"
   let cs ← match eat "⟩" cs with
     | some cs => pure cs
     | none => fail "expected ⟩"
@@ -254,9 +262,9 @@ private def parseScenarioArray (cs : List Char) : Except DecodeError (NonEmptyAr
     | some cs => pure cs
     | none => fail "expected ⟨#["
   let (items, cs) ← parseCommaSep parseScenario "]" cs
-  let cs ← match eat ", by native_decide" cs with
+  let cs ← match (eat "," cs).bind eatProof with
     | some cs => pure cs
-    | none => fail "expected `, by native_decide` after scenarios"
+    | none => fail "expected `, by decide +kernel` after scenarios"
   let cs ← match eat "⟩" cs with
     | some cs => pure cs
     | none => fail "expected ⟩ after scenarios"
@@ -305,9 +313,9 @@ private def parseNonEmptyNonBlank (cs : List Char) :
     | some cs => pure cs
     | none => fail "expected ⟨ before non-blank array"
   let (items, cs) ← parseNonBlankArray cs
-  let cs ← match eat ", by native_decide" cs with
+  let cs ← match (eat "," cs).bind eatProof with
     | some cs => pure cs
-    | none => fail "expected `, by native_decide` after names"
+    | none => fail "expected `, by decide +kernel` after names"
   let cs ← match eat "⟩" cs with
     | some cs => pure cs
     | none => fail "expected ⟩ after names"
@@ -351,7 +359,7 @@ private def parseDesignUnit (cs : List Char) : Except DecodeError (DesignUnit ×
   let cs ← parseField "target" cs
   let (target, cs) ← parseTargetLit cs
   let cs ← parseField "targetAllowed" cs
-  let cs ← match eat "by native_decide" cs with
+  let cs ← match eatProof cs with
     | some cs => pure cs
     | none => fail "expected targetAllowed proof"
   let cs ← parseField "interfaces" cs
@@ -399,7 +407,7 @@ public def parseSnapshotSource (src : String) : Except DecodeError SpecSnapshot 
         | none => fail "expected requirement array"
       parseCommaSep parseRequirement "]" cs
   let cs ← parseField "uniqueIds" cs
-  let cs ← match eat "by native_decide" cs with
+  let cs ← match eatProof cs with
     | some cs => pure cs
     | none => fail "expected uniqueIds proof"
   let cs ← parseField "designs" cs
@@ -412,11 +420,11 @@ public def parseSnapshotSource (src : String) : Except DecodeError SpecSnapshot 
         | none => fail "expected design array"
       parseCommaSep parseDesignUnit "]" cs
   let cs ← parseField "uniqueDesignIds" cs
-  let cs ← match eat "by native_decide" cs with
+  let cs ← match eatProof cs with
     | some cs => pure cs
     | none => fail "expected uniqueDesignIds proof"
   let cs ← parseField "designsLinked" cs
-  let cs ← match eat "by native_decide" cs with
+  let cs ← match eatProof cs with
     | some cs => pure cs
     | none => fail "expected designsLinked proof"
   let cs ← match eat "}" cs with
@@ -456,24 +464,25 @@ public theorem emitSnapshotSource_of_requirements {s t : SpecSnapshot}
     emitSnapshotSource s = emitSnapshotSource t :=
   emitSnapshotSource_of_payload h hDes
 
-/-- Empty snapshot roundtrips through the generated-source parser. -/
-public theorem parse_emit_empty_isOk :
-    (parseSnapshotSource (emitSnapshotSource SpecSnapshot.empty)).isOk = true := by
-  native_decide
+-- Empty snapshot roundtrips through the generated-source parser. A `#guard`, not a
+-- theorem: the kernel cannot evaluate the emitter/parser string pipeline, and a
+-- `native_decide` theorem about one value would put a compiler-trust axiom into
+-- every export that external kernels refuse.
+#guard (parseSnapshotSource (emitSnapshotSource SpecSnapshot.empty)).isOk
 
 #guard
   let r : Requirement := {
-    id := ⟨"quote.line", by native_decide⟩
-    shall := ⟨"say \"hi\"\nthere", by native_decide⟩
+    id := ⟨"quote.line", by decide +kernel⟩
+    shall := ⟨"say \"hi\"\nthere", by decide +kernel⟩
     scenarios := ⟨#[{
-      name := ⟨"n", by native_decide⟩
-      given? := some ⟨"g", by native_decide⟩
-      whenText := ⟨"w", by native_decide⟩
-      thenText := ⟨"t", by native_decide⟩
-      check := .deferred ⟨"later", by native_decide⟩
-    }], by native_decide⟩
+      name := ⟨"n", by decide +kernel⟩
+      given? := some ⟨"g", by decide +kernel⟩
+      whenText := ⟨"w", by decide +kernel⟩
+      thenText := ⟨"t", by decide +kernel⟩
+      check := .deferred ⟨"later", by decide +kernel⟩
+    }], by decide +kernel⟩
   }
-  let snap : SpecSnapshot := { requirements := #[r], uniqueIds := by native_decide }
+  let snap : SpecSnapshot := { requirements := #[r], uniqueIds := by decide +kernel }
   match parseSnapshotSource (emitSnapshotSource snap) with
   | .ok s => s == snap && emitSnapshotSource s == emitSnapshotSource snap
   | .error _ => false

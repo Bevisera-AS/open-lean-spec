@@ -50,21 +50,21 @@ def checks : Array (String × Bool) := #[
     | .error _ => false),
   ("duplicate add is not applicable",
     match ApplicableChange.of initialSnapshot {
-      id := ⟨"dup", by native_decide⟩
-      why := ⟨"already present", by native_decide⟩
-      deltas := ⟨#[.added themeSelection], by native_decide⟩
+      id := ⟨"dup", by decide +kernel⟩
+      why := ⟨"already present", by decide +kernel⟩
+      deltas := ⟨#[.added themeSelection], by decide +kernel⟩
     } with
     | .error (.apply (.duplicateId "theme.selection")) => true
     | _ => false),
   ("missing modified id is not applicable",
     match ApplicableChange.of initialSnapshot {
-      id := ⟨"miss", by native_decide⟩
-      why := ⟨"no such requirement", by native_decide⟩
+      id := ⟨"miss", by decide +kernel⟩
+      why := ⟨"no such requirement", by decide +kernel⟩
       deltas := ⟨#[.modified {
-        id := ⟨"theme.missing", by native_decide⟩
-        shall := ⟨"gone", by native_decide⟩
+        id := ⟨"theme.missing", by decide +kernel⟩
+        shall := ⟨"gone", by decide +kernel⟩
         scenarios := themeSelection.scenarios
-      }], by native_decide⟩
+      }], by decide +kernel⟩
     } with
     | .error (.apply (.missingId "theme.missing")) => true
     | _ => false),
@@ -88,13 +88,13 @@ def checks : Array (String × Bool) := #[
     | .error _ => false),
   ("rename preserves uniqueness",
     match ApplicableChange.of initialSnapshot {
-      id := ⟨"rename-theme", by native_decide⟩
-      why := ⟨"stable id", by native_decide⟩
+      id := ⟨"rename-theme", by decide +kernel⟩
+      why := ⟨"stable id", by decide +kernel⟩
       deltas := ⟨#[.renamed {
-        frm := ⟨"theme.selection", by native_decide⟩
-        to := ⟨"theme.mode", by native_decide⟩
-        property := by native_decide
-      }], by native_decide⟩
+        frm := ⟨"theme.selection", by decide +kernel⟩
+        to := ⟨"theme.mode", by decide +kernel⟩
+        property := by decide +kernel
+      }], by decide +kernel⟩
     } with
     | .ok ac =>
       decide (UniqueRequirementIds (ApplicableChange.apply ac).requirements) &&

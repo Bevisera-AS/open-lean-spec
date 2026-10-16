@@ -35,7 +35,7 @@ Everything stays *lower-assurance* than the spec store: nothing here is claimed 
 or useful, only well-formed, unique, and provenance-honest.
 
 Note on the canonical id: the zero-dep toolchain has no `String.any` reasoning
-lemmas (string non-blankness is only ever discharged by `native_decide` on literals),
+lemmas (string non-blankness is only ever discharged by `decide +kernel` on literals),
 so an id that *concatenated* a kind tag onto a variable `learning` could not be
 proved non-blank. The canonical id therefore reuses the learning's own non-blank
 witness verbatim; `kind` lives on the node (and on the kept primaries), not in the id.
@@ -143,7 +143,7 @@ public instance : Kb.Identified Reflection where
 /-- The consolidated agent-experience store: a generic `Kb.Store` of reflections
 plus the stored supersession history. -/
 public structure Wiki where
-  store     : Kb.Store Reflection RunId := { items := #[], uniqueIds := by native_decide }
+  store     : Kb.Store Reflection RunId := { items := #[], uniqueIds := by decide +kernel }
   relations : Array Morphism := #[]
 
 /-- The reflections held, projected from the store (all at `.provisional`). The
@@ -388,28 +388,28 @@ end
 /-! ## Worked examples (executable `#guard`s) -/
 
 private def nb (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : NonBlank := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : NonBlank := ⟨s, h⟩
 
 private def rid (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : ReflectionId := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : ReflectionId := ⟨s, h⟩
 
 private def runid (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : RunId := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : RunId := ⟨s, h⟩
 
 private def r1 : Reflection :=
   { id := rid "wiki.enum-canary", kind := .pattern
     learning := nb "round-trip guards catch enum typos"
-    derivedFrom := ⟨#[runid "run-001", runid "run-002"], by native_decide⟩ }
+    derivedFrom := ⟨#[runid "run-001", runid "run-002"], by decide +kernel⟩ }
 
 private def r1' : Reflection :=  -- same learning, overlapping + new run
   { id := rid "wiki.enum-canary", kind := .pattern
     learning := nb "round-trip guards catch enum typos"
-    derivedFrom := ⟨#[runid "run-002", runid "run-003"], by native_decide⟩ }
+    derivedFrom := ⟨#[runid "run-002", runid "run-003"], by decide +kernel⟩ }
 
 private def r2 : Reflection :=  -- different learning
   { id := rid "wiki.read-first", kind := .strategy
     learning := nb "read the snapshot before proposing a delta"
-    derivedFrom := ⟨#[runid "run-009"], by native_decide⟩ }
+    derivedFrom := ⟨#[runid "run-009"], by decide +kernel⟩ }
 
 -- Recording one reflection mints a content-canonical consolidated node AND keeps the
 -- primary: two entries, unique ids, a supersedes edge. The canonical id IS the
@@ -469,20 +469,20 @@ private def r2 : Reflection :=  -- different learning
 private def wiki2 : Wiki := Wiki.record (Wiki.record {} r1) r2
 
 private def exScenarioW : Scenario :=
-  { name := ⟨"n", by native_decide⟩
-    whenText := ⟨"w", by native_decide⟩
-    thenText := ⟨"t", by native_decide⟩
+  { name := ⟨"n", by decide +kernel⟩
+    whenText := ⟨"w", by decide +kernel⟩
+    thenText := ⟨"t", by decide +kernel⟩
     check := .executable }
 
 private def exReqW : Requirement :=
-  { id := ⟨"cap.x", by native_decide⟩
-    shall := ⟨"do x", by native_decide⟩
-    scenarios := ⟨#[exScenarioW], by decide⟩ }
+  { id := ⟨"cap.x", by decide +kernel⟩
+    shall := ⟨"do x", by decide +kernel⟩
+    scenarios := ⟨#[exScenarioW], by decide +kernel⟩ }
 
 private def exChgW : Change :=
-  { id := ⟨"chg-x", by native_decide⟩
-    why := ⟨"because", by native_decide⟩
-    deltas := ⟨#[.added exReqW], by decide⟩ }
+  { id := ⟨"chg-x", by decide +kernel⟩
+    why := ⟨"because", by decide +kernel⟩
+    deltas := ⟨#[.added exReqW], by decide +kernel⟩ }
 
 -- Cites a kept original the Wiki holds → coherent.
 #guard ({ change := exChgW, motivations := #[nb "wiki.enum-canary"] } : ReflectedChange).coherentInWiki wiki2
@@ -492,7 +492,7 @@ private def exChgW : Change :=
 #guard ({ change := exChgW } : ReflectedChange).coherentInWiki wiki2
 
 -- The archive gate refuses an uncited change before the human gate is consulted.
-private def emptySnap : SpecSnapshot := ⟨#[], by native_decide, #[], by native_decide, by native_decide⟩
+private def emptySnap : SpecSnapshot := ⟨#[], by decide +kernel, #[], by decide +kernel, by decide +kernel⟩
 private def isUncited : Except ReflectedArchiveError SpecSnapshot → Bool
   | .error .uncited => true
   | _ => false

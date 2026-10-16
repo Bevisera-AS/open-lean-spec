@@ -25,9 +25,9 @@ public section
 
 /-- Portable skillset. Company-specific role skillsets stay in a downstream pack. -/
 public def specChange : Skillset := {
-  id := ⟨"skillset.specChange", by native_decide⟩
-  pasteToken := ⟨"spec-change", by native_decide⟩
-  mission := ⟨"Specify and change behaviour as Lean DesignUnits with short Requirement labels, then apply and archive under human gates.", by native_decide⟩
+  id := ⟨"skillset.specChange", by decide +kernel⟩
+  pasteToken := ⟨"spec-change", by decide +kernel⟩
+  mission := ⟨"Specify and change behaviour as Lean DesignUnits with short Requirement labels, then apply and archive under human gates.", by decide +kernel⟩
   roleSkill := roleSpecifier.id
   boot := ⟨#[
     humanGates.id,
@@ -37,9 +37,9 @@ public def specChange : Skillset := {
     applyChange.id,
     archiveChange.id,
     roleSpecifier.id
-  ], by native_decide⟩
-  reads := #[⟨"README.md", by native_decide⟩]
-  roleInBoot := by native_decide
+  ], by decide +kernel⟩
+  reads := #[⟨"README.md", by decide +kernel⟩]
+  roleInBoot := by decide +kernel
 }
 
 public def catalog : Catalog := {
@@ -53,12 +53,12 @@ public def catalog : Catalog := {
     roleSpecifier
   ]
   skillsets := #[specChange]
-  uniqueSkills := by native_decide
-  uniqueSkillsets := by native_decide
-  uniqueTokens := by native_decide
-  registered := by native_decide
-  requiresRegistered := by native_decide
-  requiresAcyclic := by native_decide
+  uniqueSkills := by decide +kernel
+  uniqueSkillsets := by decide +kernel
+  uniqueTokens := by decide +kernel
+  registered := by decide +kernel
+  requiresRegistered := by decide +kernel
+  requiresAcyclic := by decide +kernel
 }
 
 #guard catalog.wellFormed

@@ -1,25 +1,40 @@
 # CI for lean-spec.
 #
-#   verify          `lake build` + `lake test` on merge requests, on the default
-#                   branch, and on tags. This is what turns the changelog's
-#                   standing claim -- builds clean, passes the suite -- into a
-#                   check rather than an assertion, and it runs on Linux, a
-#                   second platform from the macOS development machine. That
-#                   matters here: `native_decide` compiles and executes at each
-#                   of its use sites, so CI re-runs them, it does not re-read
-#                   them.
+#   verify          `lake build` (library plus both executables) and `lake test`
+#                   on merge requests, on the default branch, on tags, and on
+#                   any branch via "Run pipeline" in the GitLab UI. This
+#                   turns the changelog's standing claim -- builds clean, passes
+#                   the suite -- into a check rather than an assertion, on Linux,
+#                   a second platform from the macOS development machine.
+#
+#   kernel-check    `lake check --paranoid`, sandboxed. Builds and exports the
+#                   default target (the library, demos and test modules) inside a
+#                   `bwrap` sandbox and replays the export through every checker
+#                   bundled with Lean: its kernel, the hardened-allocator kernel,
+#                   lean4lean, nanoda, and the verified kernels con-leche and
+#                   con-ron. Fails on any checker rejection or on any axiom beyond
+#                   the standard ones, so a `native_decide` anywhere fails the
+#                   pipeline. See docs/lake-check-paranoid-report.md.
+#
+#                   The sandbox needs Linux user namespaces, which Docker's
+#                   default seccomp profile blocks. The job therefore needs a
+#                   runner that starts job containers privileged; GitLab.com's
+#                   shared Linux runners do (that is also what `build-ci-image`'s
+#                   docker-in-docker relies on). On a self-managed runner set
+#                   `privileged = true` for the docker executor. Never pass
+#                   `--inadvisably-no-sandbox` here.
 #
 #   build-ci-image  Manual. Builds ci/Dockerfile and pushes it to this project's
 #                   Container Registry, then prints the digest to pin.
 #
-# The first pipeline needs no preparation: `verify` runs on a plain Debian image
-# and installs the toolchain named in `lean-toolchain`, cached between runs.
+# The first pipeline needs no preparation: the jobs run on a plain Debian image
+# and install the toolchain named in `lean-toolchain`, cached between runs.
 # Once `build-ci-image` has run once, set the project variable LEAN_CI_IMAGE to
 # the pushed image -- pinned by digest, e.g.
 #
-#   registry.gitlab.com/bevisera/lean-spec/ci:v4.33.0@sha256:<digest>
+#   registry.gitlab.com/bevisera/lean-spec/ci:v4.35.0@sha256:<digest>
 #
-# and the install step becomes a no-op.
+# and the install steps become no-ops.
 
 stages:
   - verify
@@ -33,11 +48,9 @@ variables:
   ELAN_HOME: "$CI_PROJECT_DIR/.elan"
   GIT_DEPTH: "50"
 
-verify:
-  stage: verify
+.lean-env:
   image: $LEAN_CI_IMAGE
   interruptible: true
-  timeout: 45m
   cache:
     key:
       files:
@@ -47,25 +60,56 @@ verify:
   before_script:
     - export PATH="$ELAN_HOME/bin:$PATH"
     - |
-      if ! command -v cc > /dev/null 2>&1; then
+      if ! command -v cc > /dev/null 2>&1 || ! command -v bwrap > /dev/null 2>&1; then
         apt-get update
-        apt-get install -y --no-install-recommends ca-certificates curl git build-essential
+        apt-get install -y --no-install-recommends ca-certificates curl git build-essential bubblewrap
         rm -rf /var/lib/apt/lists/*
       fi
+    # `lake check` binds /run/user into its sandbox; slim images lack it.
+    - mkdir -p /run/user
     - |
       if ! command -v lake > /dev/null 2>&1; then
         curl -sSfL https://elan.lean-lang.org/elan-init.sh \
           | sh -s -- -y --default-toolchain "$(cat lean-toolchain)"
       fi
-  script:
     - lean --version
     - lake --version
-    - lake build
-    - lake test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
+    # "Run pipeline" in the GitLab UI, on any branch.
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+verify:
+  extends: .lean-env
+  stage: verify
+  timeout: 45m
+  script:
+    - lake build
+    - lake build lean-spec lean-spec-verification
+    - lake test
+
+kernel-check:
+  extends: .lean-env
+  stage: verify
+  timeout: 60m
+  variables:
+    # Keep the toolchain outside the project: with it under $CI_PROJECT_DIR,
+    # `lake check` stalls at "Resolving dependencies". /opt/elan is where the
+    # pinned image already has it; without the image it is installed each run.
+    ELAN_HOME: "/opt/elan"
+  cache: []
+  script:
+    # Sandboxed: builds and exports inside bwrap. No --from-export, no
+    # --inadvisably-no-sandbox.
+    # Exit status is lake's, not a pipe's.
+    - status=0; lake check --paranoid > lake-check.log 2>&1 || status=$?; cat lake-check.log; exit $status
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - lake-check.log
 
 build-ci-image:
   stage: image

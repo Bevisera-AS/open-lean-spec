@@ -12,13 +12,19 @@ theorem emitIgnoresProof {s t : SpecSnapshot}
     emitSnapshotSource s = emitSnapshotSource t :=
   emitSnapshotSource_of_requirements h hDes
 
-theorem emptyRoundtrips : (parseSnapshotSource (emitSnapshotSource SpecSnapshot.empty)).isOk = true :=
-  parse_emit_empty_isOk
-
 open LeanSpec
 open LeanSpec.Demo.Archive
 
 def checks : Array (String × Bool) := #[
+  ("empty snapshot roundtrips through Lean source",
+    (parseSnapshotSource (emitSnapshotSource SpecSnapshot.empty)).isOk),
+  ("emitted proofs are kernel-checked, not native_decide",
+    ((emitSnapshotSource initialSnapshot).splitOn "native_decide").length == 1),
+  ("a store written with `by native_decide` proofs still parses",
+    let legacy := (emitSnapshotSource initialSnapshot).replace "by decide +kernel" "by native_decide"
+    match parseSnapshotSource legacy with
+    | .ok s => s == initialSnapshot
+    | .error _ => false),
   ("theme snapshot roundtrips through Lean source",
     match parseSnapshotSource (emitSnapshotSource initialSnapshot) with
     | .ok s => s == initialSnapshot

@@ -14,15 +14,20 @@
 
 FROM debian:bookworm-slim
 
-ARG LEAN_TOOLCHAIN=leanprover/lean4:v4.33.0
+ARG LEAN_TOOLCHAIN=leanprover/lean4:v4.35.0
 
+# bubblewrap: `lake check` sandboxes the code it checks with `bwrap`.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
       curl \
       git \
       build-essential \
- && rm -rf /var/lib/apt/lists/*
+      bubblewrap \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /run/user
+# `lake check` binds /run/user into its read-only sandbox root; bwrap fails with
+# "Can't mkdir /run/user" when the image lacks it.
 
 ENV ELAN_HOME=/opt/elan
 ENV PATH=/opt/elan/bin:$PATH

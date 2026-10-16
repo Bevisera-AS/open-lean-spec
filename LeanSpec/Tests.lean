@@ -20,6 +20,7 @@ import LeanSpec.Tests.Catalog
 import LeanSpec.Tests.Design
 import LeanSpec.Tests.Verification
 import LeanSpec.Tests.Sugar
+import LeanSpec.Tests.KernelPredicates
 
 open LeanSpec
 open LeanSpec.Demo.Theme
@@ -60,6 +61,8 @@ def main : IO UInt32 := do
     assertTrue label condition
   for (label, condition) in LeanSpec.Tests.Verification.checks do
     assertTrue label condition
+  for (label, condition) in LeanSpec.Tests.KernelPredicates.checks do
+    assertTrue label condition
   assertTrue "theme requirement well-formed" themeSelection.wellFormed
   assertTrue "theme design well-formed" themeSelectionDesign.wellFormed
   assertTrue "theme design shares the requirement id"
@@ -76,9 +79,9 @@ def main : IO UInt32 := do
   assertTrue "empty scenarios fail well-formed" (!(emptyRaw.validate "requirement").isOk)
   assertTrue "proposeChange skill well-formed" proposeChange.wellFormed
   let addTheme : Change := {
-    id := ⟨"add-dark-mode", by native_decide⟩
-    why := ⟨"Users need a persisted dark theme.", by native_decide⟩
-    deltas := ⟨#[.added themeSelection], by native_decide⟩
+    id := ⟨"add-dark-mode", by decide +kernel⟩
+    why := ⟨"Users need a persisted dark theme.", by decide +kernel⟩
+    deltas := ⟨#[.added themeSelection], by decide +kernel⟩
   }
   assertTrue "added change well-formed" addTheme.wellFormed
   let partialRaw : Raw.Requirement := {
@@ -90,21 +93,21 @@ def main : IO UInt32 := do
   let okMod : Delta := .modified themeSelection
   assertTrue "validated modified is not partial" (!okMod.isPartialModified)
   let removedOk : Delta := .removed
-    ⟨"theme.legacy", by native_decide⟩
-    ⟨"replaced", by native_decide⟩
-    ⟨"use theme.selection", by native_decide⟩
+    ⟨"theme.legacy", by decide +kernel⟩
+    ⟨"replaced", by decide +kernel⟩
+    ⟨"use theme.selection", by decide +kernel⟩
   assertTrue "removed with reason and migration" removedOk.wellFormed
   assertTrue "spec-change catalog well-formed" catalog.wellFormed
   assertTrue "spec-change token resolves" (catalog.findSkillset? "spec-change").isSome
   assertTrue "company-pack skillsets are not in this library"
     (catalog.findSkillset? "company-pack.role").isNone
   let missingRoleSet : Skillset := {
-    id := ⟨"skillset.broken", by native_decide⟩
-    pasteToken := ⟨"broken", by native_decide⟩
-    mission := ⟨"broken", by native_decide⟩
+    id := ⟨"skillset.broken", by decide +kernel⟩
+    pasteToken := ⟨"broken", by decide +kernel⟩
+    mission := ⟨"broken", by decide +kernel⟩
     roleSkill := roleSpecifier.id
-    boot := ⟨#[proposeChange.id, roleSpecifier.id], by native_decide⟩
-    roleInBoot := by native_decide
+    boot := ⟨#[proposeChange.id, roleSpecifier.id], by decide +kernel⟩
+    roleInBoot := by decide +kernel
   }
   assertTrue "missing roleSkill fails"
     (match Catalog.of "catalog" #[proposeChange] #[missingRoleSet] with
@@ -135,35 +138,35 @@ def main : IO UInt32 := do
             | none => false)
      | .error _ => false)
   let addDup : Change := {
-    id := ⟨"dup", by native_decide⟩
-    why := ⟨"already present", by native_decide⟩
-    deltas := ⟨#[.added themeSelection], by native_decide⟩
+    id := ⟨"dup", by decide +kernel⟩
+    why := ⟨"already present", by decide +kernel⟩
+    deltas := ⟨#[.added themeSelection], by decide +kernel⟩
   }
   assertTrue "archive rejects duplicate add"
     (match initialSnapshot.archive addDup .accepted with
      | .error (.duplicateId "theme.selection") => true
      | _ => false)
   let missMod : Change := {
-    id := ⟨"miss", by native_decide⟩
-    why := ⟨"no such requirement", by native_decide⟩
+    id := ⟨"miss", by decide +kernel⟩
+    why := ⟨"no such requirement", by decide +kernel⟩
     deltas := ⟨#[.modified {
-      id := ⟨"theme.missing", by native_decide⟩
-      shall := ⟨"gone", by native_decide⟩
+      id := ⟨"theme.missing", by decide +kernel⟩
+      shall := ⟨"gone", by decide +kernel⟩
       scenarios := themeSelection.scenarios
-    }], by native_decide⟩
+    }], by decide +kernel⟩
   }
   assertTrue "archive rejects missing modified id"
     (match initialSnapshot.archive missMod .accepted with
      | .error (.missingId "theme.missing") => true
      | _ => false)
   let renamed : Change := {
-    id := ⟨"rename-theme", by native_decide⟩
-    why := ⟨"stable id", by native_decide⟩
+    id := ⟨"rename-theme", by decide +kernel⟩
+    why := ⟨"stable id", by decide +kernel⟩
     deltas := ⟨#[.renamed {
-      frm := ⟨"theme.selection", by native_decide⟩
-      to := ⟨"theme.mode", by native_decide⟩
-      property := by native_decide
-    }], by native_decide⟩
+      frm := ⟨"theme.selection", by decide +kernel⟩
+      to := ⟨"theme.mode", by decide +kernel⟩
+      property := by decide +kernel
+    }], by decide +kernel⟩
   }
   assertTrue "rename archive succeeds"
     (match initialSnapshot.archive renamed .accepted with
@@ -173,12 +176,12 @@ def main : IO UInt32 := do
            (snap.findDesign? "theme.selection").isNone
      | .error _ => false)
   let removed : Change := {
-    id := ⟨"drop-theme", by native_decide⟩
-    why := ⟨"retired", by native_decide⟩
+    id := ⟨"drop-theme", by decide +kernel⟩
+    why := ⟨"retired", by decide +kernel⟩
     deltas := ⟨#[.removed
-      ⟨"theme.selection", by native_decide⟩
-      ⟨"retired", by native_decide⟩
-      ⟨"no replacement", by native_decide⟩], by native_decide⟩
+      ⟨"theme.selection", by decide +kernel⟩
+      ⟨"retired", by decide +kernel⟩
+      ⟨"no replacement", by decide +kernel⟩], by decide +kernel⟩
   }
   assertTrue "remove archive succeeds"
     (match initialSnapshot.archive removed .accepted with
