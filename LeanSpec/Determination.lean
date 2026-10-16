@@ -280,12 +280,12 @@ end
 /-! ## Worked examples (executable `#guard`s) -/
 
 private def nb (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : NonBlank := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : NonBlank := ⟨s, h⟩
 
 private def det (id : NonBlank) (clock : Nat) (active : Bool) (o : Outcome)
     (prov : Nat := 0) : Determination :=
   { id
-    roles := ⟨#[{ role := nb "subject", player := nb "acme" }], by decide⟩
+    roles := ⟨#[{ role := nb "subject", player := nb "acme" }], by decide +kernel⟩
     outcome := o
     clock
     active

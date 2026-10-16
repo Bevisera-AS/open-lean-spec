@@ -25,13 +25,14 @@ public structure Skillset where
 
 end Raw
 
+/-- Over `toList` so the kernel can decide it for a literal skillset. -/
 public abbrev RoleInBoot (roleSkill : ProcessSkillId) (boot : NonEmptyArray ProcessSkillId) : Prop :=
-  boot.toArray.any (fun id => id == roleSkill) = true
+  boot.toArray.toList.any (fun id => id == roleSkill) = true
 
 public instance (roleSkill : ProcessSkillId) (boot : NonEmptyArray ProcessSkillId) :
     Decidable (RoleInBoot roleSkill boot) :=
   by
-    change Decidable (boot.toArray.any (fun id => id == roleSkill) = true)
+    change Decidable (boot.toArray.toList.any (fun id => id == roleSkill) = true)
     infer_instance
 
 /-- Agent boot plan. The mechanism belongs in this library; company roles do not.
@@ -83,7 +84,7 @@ public def Skillset.wellFormed (ss : Skillset) : Bool :=
     decide (ValidProcessSkillId ss.roleSkill.value) &&
     decide (0 < ss.boot.items.size) &&
     ss.boot.toArray.all (fun id => validProcessSkillId id.value) &&
-    ss.boot.toArray.any (fun id => id == ss.roleSkill)
+    ss.boot.toArray.toList.any (fun id => id == ss.roleSkill)
 
 /-- Every domain `Skillset` satisfies the compatibility well-formedness predicate. -/
 public theorem Skillset.wellFormed_eq_true (ss : Skillset) : ss.wellFormed = true := by
@@ -147,12 +148,15 @@ public theorem validate_complete (skillset : LeanSpec.Skillset) (path : String) 
 
 end Raw.Skillset
 
-public def skillIdRegistered (skills : Array ProcessSkill) (id : ProcessSkillId) : Bool :=
-  skills.any (fun s => s.id == id)
+/- The catalog invariants below fold over `toList`, not `Array.any`/`all`: the kernel
+evaluates the list forms reliably, so a literal catalog's proofs are `by decide +kernel`. -/
 
-public def bootRegistered (skills : Array ProcessSkill) (ss : Skillset) : Bool :=
+@[expose] public def skillIdRegistered (skills : Array ProcessSkill) (id : ProcessSkillId) : Bool :=
+  skills.toList.any (fun s => s.id == id)
+
+@[expose] public def bootRegistered (skills : Array ProcessSkill) (ss : Skillset) : Bool :=
   skillIdRegistered skills ss.roleSkill &&
-    ss.boot.toArray.all (fun b => skillIdRegistered skills b)
+    ss.boot.toArray.toList.all (fun b => skillIdRegistered skills b)
 
 public abbrev UniqueSkillIds (skills : Array ProcessSkill) : Prop :=
   (skills.map (·.id.value)).toList.Nodup
@@ -164,7 +168,7 @@ public abbrev UniquePasteTokens (skillsets : Array Skillset) : Prop :=
   (skillsets.map (·.pasteToken.value)).toList.Nodup
 
 public abbrev AllBootsRegistered (skills : Array ProcessSkill) (skillsets : Array Skillset) : Prop :=
-  skillsets.all (fun ss => bootRegistered skills ss) = true
+  skillsets.toList.all (fun ss => bootRegistered skills ss) = true
 
 /-! ### Dependency-graph invariants for `requires`
 
@@ -177,30 +181,30 @@ rounds. -/
 /-- Every `requires` id of every skill resolves to a registered skill. Modelled on
 `AllBootsRegistered` (an `.all … = true` fold) so `Decidable` is `infer_instance`. -/
 public abbrev AllRequiresRegistered (skills : Array ProcessSkill) : Prop :=
-  skills.all (fun s => s.requires.all (fun r => skillIdRegistered skills r)) = true
+  skills.toList.all (fun s => s.requires.toList.all (fun r => skillIdRegistered skills r)) = true
 
 /-- One Kahn round: drop from `remaining` every id all of whose required ids are
 NOT in `remaining` (i.e. already removed or external). Returns the survivors. -/
-private def kahnStep (skills : Array ProcessSkill) (remaining : Array String) : Array String :=
+@[expose] public def kahnStep (skills : List ProcessSkill) (remaining : List String) : List String :=
   remaining.filter (fun id =>
     match skills.find? (fun s => s.id.value == id) with
-    | some s => s.requires.any (fun r => remaining.contains r.value)
+    | some s => s.requires.toList.any (fun r => remaining.contains r.value)
     | none => false)
 
 /-- Fuelled acyclicity: reduce the remaining set `fuel` times; acyclic iff it
 empties. Fuel is seeded with `skills.size`, enough rounds to peel any DAG. -/
-private def kahnReduce (skills : Array ProcessSkill) : Nat → Array String → Bool
+@[expose] public def kahnReduce (skills : List ProcessSkill) : Nat → List String → Bool
   | 0, remaining => remaining.isEmpty
   | fuel + 1, remaining =>
     if remaining.isEmpty then true
     else
       let next := kahnStep skills remaining
-      if next.size == remaining.size then false  -- no progress ⇒ a cycle remains
+      if next.length == remaining.length then false  -- no progress ⇒ a cycle remains
       else kahnReduce skills fuel next
 
 /-- The `id → requires` graph over `skills` is acyclic. -/
-public def requiresAcyclic (skills : Array ProcessSkill) : Bool :=
-  kahnReduce skills skills.size (skills.map (·.id.value))
+@[expose] public def requiresAcyclic (skills : Array ProcessSkill) : Bool :=
+  kahnReduce skills.toList skills.size (skills.toList.map (·.id.value))
 
 public abbrev RequiresAcyclic (skills : Array ProcessSkill) : Prop :=
   requiresAcyclic skills = true
@@ -217,12 +221,12 @@ public instance (skillsets : Array Skillset) : Decidable (UniquePasteTokens skil
 public instance (skills : Array ProcessSkill) (skillsets : Array Skillset) :
     Decidable (AllBootsRegistered skills skillsets) :=
   by
-    change Decidable (skillsets.all (fun ss => bootRegistered skills ss) = true)
+    change Decidable (skillsets.toList.all (fun ss => bootRegistered skills ss) = true)
     infer_instance
 
 public instance (skills : Array ProcessSkill) : Decidable (AllRequiresRegistered skills) :=
   by
-    change Decidable (skills.all (fun s => s.requires.all (fun r => skillIdRegistered skills r)) = true)
+    change Decidable (skills.toList.all (fun s => s.requires.toList.all (fun r => skillIdRegistered skills r)) = true)
     infer_instance
 
 public instance (skills : Array ProcessSkill) : Decidable (RequiresAcyclic skills) :=

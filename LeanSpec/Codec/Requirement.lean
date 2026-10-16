@@ -199,14 +199,14 @@ public def requirementSchema : Json :=
 
 #guard
   match acceptRequirement (encodeRequirement {
-    id := ⟨"r", by native_decide⟩
-    shall := ⟨"does a thing", by native_decide⟩
+    id := ⟨"r", by decide +kernel⟩
+    shall := ⟨"does a thing", by decide +kernel⟩
     scenarios := ⟨#[{
-      name := ⟨"n", by native_decide⟩
-      whenText := ⟨"w", by native_decide⟩
-      thenText := ⟨"t", by native_decide⟩
-      check := .deferred ⟨"later", by native_decide⟩
-    }], by native_decide⟩
+      name := ⟨"n", by decide +kernel⟩
+      whenText := ⟨"w", by decide +kernel⟩
+      thenText := ⟨"t", by decide +kernel⟩
+      check := .deferred ⟨"later", by decide +kernel⟩
+    }], by decide +kernel⟩
   }) with
   | .ok r => r.id.value == "r" && r.strength == .shall
   | .error _ => false

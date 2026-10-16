@@ -305,48 +305,48 @@ end
 /-! ## Worked examples (executable `#guard`s) -/
 
 private def exScenario : Scenario :=
-  { name := ⟨"shown", by native_decide⟩
-    whenText := ⟨"the page loads", by native_decide⟩
-    thenText := ⟨"the summary is displayed", by native_decide⟩
+  { name := ⟨"shown", by decide +kernel⟩
+    whenText := ⟨"the page loads", by decide +kernel⟩
+    thenText := ⟨"the summary is displayed", by decide +kernel⟩
     check := .executable }
 
 private def exReq (id : RequirementId) (shall : NonBlank) : Requirement :=
-  { id, shall, scenarios := ⟨#[exScenario], by decide⟩ }
+  { id, shall, scenarios := ⟨#[exScenario], by decide +kernel⟩ }
 
 private def reqOverview : Requirement :=
-  exReq ⟨"cap.overview", by native_decide⟩ ⟨"Show a summary dashboard", by native_decide⟩
+  exReq ⟨"cap.overview", by decide +kernel⟩ ⟨"Show a summary dashboard", by decide +kernel⟩
 private def reqDetail : Requirement :=
-  exReq ⟨"cap.detail", by native_decide⟩ ⟨"Show a per-row detail table", by native_decide⟩
+  exReq ⟨"cap.detail", by decide +kernel⟩ ⟨"Show a per-row detail table", by decide +kernel⟩
 
 private def snap : SpecSnapshot :=
-  ⟨#[reqOverview, reqDetail], by native_decide, #[], by native_decide, by native_decide⟩
+  ⟨#[reqOverview, reqDetail], by decide +kernel, #[], by decide +kernel, by decide +kernel⟩
 
 -- A change that tightens the overview requirement (introduces `cap.overview`).
 private def chg : Change :=
-  { id := ⟨"tighten-overview", by native_decide⟩
-    why := ⟨"Overview subsumes the standalone detail table", by native_decide⟩
-    deltas := ⟨#[.modified reqOverview], by decide⟩ }
+  { id := ⟨"tighten-overview", by decide +kernel⟩
+    why := ⟨"Overview subsumes the standalone detail table", by decide +kernel⟩
+    deltas := ⟨#[.modified reqOverview], by decide +kernel⟩ }
 
 #guard chg.introducedIds == #["cap.overview"]
 
 -- Coherent: overview (introduced here) supersedes detail (present in the snapshot).
 private def supOk : Supersedes :=
-  ⟨⟨"cap.overview", by native_decide⟩, ⟨"cap.detail", by native_decide⟩,
-    ⟨"the dashboard replaces the detail table", by native_decide⟩, by native_decide⟩
+  ⟨⟨"cap.overview", by decide +kernel⟩, ⟨"cap.detail", by decide +kernel⟩,
+    ⟨"the dashboard replaces the detail table", by decide +kernel⟩, by decide +kernel⟩
 
 #guard ({ change := chg, precedents := #[supOk] } : PrecedentedChange).coherentIn snap
 
 -- Incoherent: target does not exist in the snapshot.
 private def supMissingTarget : Supersedes :=
-  ⟨⟨"cap.overview", by native_decide⟩, ⟨"cap.ghost", by native_decide⟩,
-    ⟨"defeats a requirement that is not there", by native_decide⟩, by native_decide⟩
+  ⟨⟨"cap.overview", by decide +kernel⟩, ⟨"cap.ghost", by decide +kernel⟩,
+    ⟨"defeats a requirement that is not there", by decide +kernel⟩, by decide +kernel⟩
 
 #guard !({ change := chg, precedents := #[supMissingTarget] } : PrecedentedChange).coherentIn snap
 
 -- Incoherent: source is present but not introduced by this change.
 private def supForeignSource : Supersedes :=
-  ⟨⟨"cap.detail", by native_decide⟩, ⟨"cap.overview", by native_decide⟩,
-    ⟨"source is not shipped by this change", by native_decide⟩, by native_decide⟩
+  ⟨⟨"cap.detail", by decide +kernel⟩, ⟨"cap.overview", by decide +kernel⟩,
+    ⟨"source is not shipped by this change", by decide +kernel⟩, by decide +kernel⟩
 
 #guard !({ change := chg, precedents := #[supForeignSource] } : PrecedentedChange).coherentIn snap
 

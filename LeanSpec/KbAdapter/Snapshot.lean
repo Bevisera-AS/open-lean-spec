@@ -193,11 +193,11 @@ placeholder when a sensitivity detector trips, so the `NonBlank` payload invaria
 survives. Same clamp-to-fixpoint shape as the wiki's `scrubLearning`, so idempotence
 is provable the same way. -/
 
-public def specSecret (t : String) : Bool := (t.splitOn "SECRET:").length != 1
+@[expose] public def specSecret (t : String) : Bool := LeanUtil.hasInfix "SECRET:".toList t.toList
 
-public def specRedacted : NonBlank := ⟨"[REDACTED]", by native_decide⟩
+public def specRedacted : NonBlank := ⟨"[REDACTED]", by decide +kernel⟩
 
-public theorem specRedacted_clean : specSecret specRedacted.value = false := by native_decide
+public theorem specRedacted_clean : specSecret specRedacted.value = false := by decide +kernel
 
 public def scrubField (n : NonBlank) : NonBlank :=
   if specSecret n.value then specRedacted else n
@@ -205,7 +205,7 @@ public def scrubField (n : NonBlank) : NonBlank :=
 public theorem scrubField_idem (n : NonBlank) : scrubField (scrubField n) = scrubField n := by
   unfold scrubField
   split
-  · rw [if_neg (by rw [specRedacted_clean]; decide)]
+  · rw [ite_eq_right (by rw [specRedacted_clean]; decide)]
   · rfl
 
 /-- Scrub every free-text field of a scenario. -/
@@ -242,15 +242,15 @@ public instance : Kb.Redactable Requirement where
 /-! ## Worked examples -/
 
 private def leakyScenario : LeanSpec.Scenario :=
-  { name := ⟨"n", by native_decide⟩
-    whenText := ⟨"user does SECRET: token=abc", by native_decide⟩
-    thenText := ⟨"ok", by native_decide⟩
+  { name := ⟨"n", by decide +kernel⟩
+    whenText := ⟨"user does SECRET: token=abc", by decide +kernel⟩
+    thenText := ⟨"ok", by decide +kernel⟩
     check := .executable }
 
 private def leakyReq : Requirement :=
-  { id := ⟨"page.overview", by native_decide⟩
-    shall := ⟨"show dashboard with SECRET: api-key", by native_decide⟩
-    scenarios := ⟨#[leakyScenario], by native_decide⟩ }
+  { id := ⟨"page.overview", by decide +kernel⟩
+    shall := ⟨"show dashboard with SECRET: api-key", by decide +kernel⟩
+    scenarios := ⟨#[leakyScenario], by decide +kernel⟩ }
 
 -- The requirement prose is scrubbed.
 #guard (Kb.Redactable.redact leakyReq).shall.value == "[REDACTED]"

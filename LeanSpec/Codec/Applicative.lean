@@ -189,7 +189,7 @@ value with its proof — or fail closed. `mk`/`un` are the refine/forget iso. -/
           | .error e => .error e
           | .ok d => if h : ok? d = true then .ok (mk d h) else .error (err _ (c.encode (un d')))) = Except.ok d'
     rw [c.complete (un d')]
-    simp only [dif_pos (ok_un d')]
+    simp only [dite_eq_left (ok_un d')]
     exact congrArg Except.ok (mk_un d')
 
 /-! ## Collection combinators: `list`, `nonEmpty`, `optional` -/
@@ -310,7 +310,7 @@ private def pairCodec : Codec RawPair Pair :=
       intro p d
       simpa using toDomain.complete d }
 
-private def nb (s : String) (h : LeanUtil.nonemptyText s = true := by native_decide) : NonBlank := ⟨s, h⟩
+private def nb (s : String) (h : LeanUtil.nonemptyText s = true := by decide +kernel) : NonBlank := ⟨s, h⟩
 
 -- Decodes a well-formed pair.
 #guard match pairCodec.decode "ex" { a := "x", b := "y" } with

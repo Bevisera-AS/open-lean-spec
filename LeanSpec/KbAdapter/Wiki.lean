@@ -68,15 +68,15 @@ non-blank, so redaction *preserves the `NonBlank` payload invariant* — a scrub
 reflection is still a well-formed reflection. -/
 
 /-- Sensitivity detector (stand-in for a real PII/secret classifier). -/
-public def containsSecret (s : String) : Bool := (s.splitOn "SECRET:").length != 1
+@[expose] public def containsSecret (s : String) : Bool := LeanUtil.hasInfix "SECRET:".toList s.toList
 
 /-- The redaction placeholder, proven non-blank so it can inhabit a `NonBlank`. -/
-public def redactedLearning : NonBlank := ⟨"[REDACTED]", by native_decide⟩
+public def redactedLearning : NonBlank := ⟨"[REDACTED]", by decide +kernel⟩
 
 /-- The placeholder is not itself sensitive — the fixpoint that makes redaction
 idempotent. -/
 public theorem redactedLearning_clean : containsSecret redactedLearning.value = false := by
-  native_decide
+  decide +kernel
 
 /-- Scrub a single learning: clamp to the placeholder when sensitive, else keep. -/
 public def scrubLearning (n : NonBlank) : NonBlank :=
@@ -88,7 +88,7 @@ public theorem scrubLearning_idem (n : NonBlank) :
   unfold scrubLearning
   split
   · -- sensitive → inner is the placeholder, which is clean, so the inner `if` is `else`
-    rw [if_neg (by rw [redactedLearning_clean]; decide)]
+    rw [ite_eq_right (by rw [redactedLearning_clean]; decide)]
   · -- already clean → inner sees the same clean string
     rfl
 
@@ -146,7 +146,6 @@ public theorem coherentIn_eq_coherentVia (known : Array String) (r : Reflection)
       = Kb.coherentVia (knownResolver known) r.derivedFrom.items := by
   simp only [Reflection.coherentIn, Kb.coherentVia]
   rw [allKnown_eq_listAll known r.derivedFrom.items.toList]
-  rw [List.all_toArray]
 
 /-- Corollary: the generic refusal theorem, specialised back to reflections. A
 reflection citing an unknown run is incoherent — but now it is a *consequence* of
@@ -228,21 +227,21 @@ public theorem merge_stays_provisional (a b : Reflection) :
     (Kb.merge a (⟨.provisional, reflToItem a⟩ : Kb.Boxed Reflection RunId)
         ⟨.provisional, reflToItem b⟩ (show Kb.Identified.idOf a = (reflToItem a).id from rfl)).assurance
       = .provisional := by
-  simp only [Kb.merge, Kb.Assurance.meet, Kb.Assurance.rank, Nat.le_refl, if_true]
+  simp only [Kb.merge, Kb.Assurance.meet, Kb.Assurance.rank, Nat.le_refl, ite_true]
 
 /-! ## Worked examples: redaction actually scrubs, and the generic boundary inherits it -/
 
 private def leakyRefl : Reflection :=
-  { id := ⟨"wiki.leak", by native_decide⟩
+  { id := ⟨"wiki.leak", by decide +kernel⟩
     kind := .failureMode
-    learning := ⟨"agent logged SECRET: patient SSN 123-45-6789", by native_decide⟩
-    derivedFrom := ⟨#[⟨"run-050", by native_decide⟩], by native_decide⟩ }
+    learning := ⟨"agent logged SECRET: patient SSN 123-45-6789", by decide +kernel⟩
+    derivedFrom := ⟨#[⟨"run-050", by decide +kernel⟩], by decide +kernel⟩ }
 
 private def cleanRefl : Reflection :=
-  { id := ⟨"wiki.ok", by native_decide⟩
+  { id := ⟨"wiki.ok", by decide +kernel⟩
     kind := .pattern
-    learning := ⟨"round-trip guards catch enum typos", by native_decide⟩
-    derivedFrom := ⟨#[⟨"run-001", by native_decide⟩], by native_decide⟩ }
+    learning := ⟨"round-trip guards catch enum typos", by decide +kernel⟩
+    derivedFrom := ⟨#[⟨"run-001", by decide +kernel⟩], by decide +kernel⟩ }
 
 -- A leaky learning is clamped to the placeholder on redaction.
 #guard (Kb.Redactable.redact leakyRefl).learning.value == "[REDACTED]"

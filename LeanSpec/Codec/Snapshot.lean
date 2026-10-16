@@ -53,16 +53,16 @@ public def acceptSnapshotString (s : String) : Except DecodeError SpecSnapshot :
 #guard
   let snap : SpecSnapshot := {
     requirements := #[{
-      id := ⟨"r", by native_decide⟩
-      shall := ⟨"does a thing", by native_decide⟩
+      id := ⟨"r", by decide +kernel⟩
+      shall := ⟨"does a thing", by decide +kernel⟩
       scenarios := ⟨#[{
-        name := ⟨"n", by native_decide⟩
-        whenText := ⟨"w", by native_decide⟩
-        thenText := ⟨"t", by native_decide⟩
+        name := ⟨"n", by decide +kernel⟩
+        whenText := ⟨"w", by decide +kernel⟩
+        thenText := ⟨"t", by decide +kernel⟩
         check := .executable
-      }], by native_decide⟩
+      }], by decide +kernel⟩
     }]
-    uniqueIds := by native_decide
+    uniqueIds := by decide +kernel
   }
   match acceptSnapshot (encodeSnapshot snap) with
   | .ok s => s == snap

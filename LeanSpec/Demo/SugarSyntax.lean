@@ -73,24 +73,24 @@ requirement themeToggle where
 
 /-- Example trace: an agent implementing the theme toggle requirement. -/
 def themeToggleTrace : AgentTrace := {
-  runId := ⟨"run-20250115-theme", by native_decide⟩
-  changeId := some ⟨"ui.theme-toggle", by native_decide⟩
-  model := ⟨"claude-sonnet-4-20250514", by native_decide⟩
+  runId := ⟨"run-20250115-theme", by decide +kernel⟩
+  changeId := some ⟨"ui.theme-toggle", by decide +kernel⟩
+  model := ⟨"claude-sonnet-4-20250514", by decide +kernel⟩
   steps := ⟨#[
-    { timestamp := ⟨"2025-01-15T10:00:00Z", by native_decide⟩
+    { timestamp := ⟨"2025-01-15T10:00:00Z", by decide +kernel⟩
       kind := .observation
-      content := ⟨"Read existing Theme type and toggleDark function", by native_decide⟩
-      cites := #[⟨"ui.theme-toggle", by native_decide⟩] },
-    { timestamp := ⟨"2025-01-15T10:01:00Z", by native_decide⟩
+      content := ⟨"Read existing Theme type and toggleDark function", by decide +kernel⟩
+      cites := #[⟨"ui.theme-toggle", by decide +kernel⟩] },
+    { timestamp := ⟨"2025-01-15T10:01:00Z", by decide +kernel⟩
       kind := .decision
-      content := ⟨"Will add a #guard for the round-trip property", by native_decide⟩
-      cites := #[⟨"ui.theme-toggle", by native_decide⟩] },
-    { timestamp := ⟨"2025-01-15T10:02:00Z", by native_decide⟩
+      content := ⟨"Will add a #guard for the round-trip property", by decide +kernel⟩
+      cites := #[⟨"ui.theme-toggle", by decide +kernel⟩] },
+    { timestamp := ⟨"2025-01-15T10:02:00Z", by decide +kernel⟩
       kind := .toolCall
-      content := ⟨"Wrote toggleDarkCheck_of_light theorem", by native_decide⟩
-      cites := #[⟨"ui.theme-toggle", by native_decide⟩] }
-  ], by native_decide⟩
-  outcome := .completed #[⟨"LeanSpec/Demo/Theme.lean", by native_decide⟩]
+      content := ⟨"Wrote toggleDarkCheck_of_light theorem", by decide +kernel⟩
+      cites := #[⟨"ui.theme-toggle", by decide +kernel⟩] }
+  ], by decide +kernel⟩
+  outcome := .completed #[⟨"LeanSpec/Demo/Theme.lean", by decide +kernel⟩]
 }
 
 #guard themeToggleTrace.wellFormed
@@ -101,10 +101,10 @@ def themeToggleTrace : AgentTrace := {
 /-- Reflection consolidated from the theme toggle trace (one run here; the type
 takes many). Agent-axis knowledge — see `LeanSpec/Reflection.lean`. -/
 def themeToggleReflection : Reflection := {
-  id := ⟨"wiki.enum-toggle-canary", by native_decide⟩
+  id := ⟨"wiki.enum-toggle-canary", by decide +kernel⟩
   kind := .pattern
-  learning := ⟨"Round-trip properties on enum toggles are trivial but good canaries", by native_decide⟩
-  derivedFrom := ⟨#[⟨"run-20250115-theme", by native_decide⟩], by decide⟩
+  learning := ⟨"Round-trip properties on enum toggles are trivial but good canaries", by decide +kernel⟩
+  derivedFrom := ⟨#[⟨"run-20250115-theme", by decide +kernel⟩], by decide +kernel⟩
   promoted := .noAction
 }
 

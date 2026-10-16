@@ -130,15 +130,15 @@ public theorem attrToItem_proved (a : AttributedRequirement) :
 
 private def ar : AttributedRequirement :=
   { req :=
-      { id := ⟨"page.overview", by native_decide⟩
-        shall := ⟨"show a summary dashboard", by native_decide⟩
+      { id := ⟨"page.overview", by decide +kernel⟩
+        shall := ⟨"show a summary dashboard", by decide +kernel⟩
         scenarios := ⟨#[{
-          name := ⟨"load", by native_decide⟩
-          whenText := ⟨"the page loads", by native_decide⟩
-          thenText := ⟨"averages are shown", by native_decide⟩
-          check := .executable }], by native_decide⟩ }
-    provenance := ⟨#[⟨⟨"author:alice", by native_decide⟩⟩,
-                    ⟨⟨"change:chg-launch", by native_decide⟩⟩], by native_decide⟩ }
+          name := ⟨"load", by decide +kernel⟩
+          whenText := ⟨"the page loads", by decide +kernel⟩
+          thenText := ⟨"averages are shown", by decide +kernel⟩
+          check := .executable }], by decide +kernel⟩ }
+    provenance := ⟨#[⟨⟨"author:alice", by decide +kernel⟩⟩,
+                    ⟨⟨"change:chg-launch", by decide +kernel⟩⟩], by decide +kernel⟩ }
 
 -- Identity flows from the underlying requirement.
 #guard (attrToItem ar).id == "page.overview"

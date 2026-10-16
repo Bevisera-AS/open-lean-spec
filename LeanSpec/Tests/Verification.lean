@@ -8,16 +8,16 @@ open LeanSpec.Demo.Verification
 
 def deferredOnly : SpecSnapshot := {
   requirements := #[{
-    id := ⟨"req.later", by native_decide⟩
-    shall := ⟨"say \"later\"", by native_decide⟩
+    id := ⟨"req.later", by decide +kernel⟩
+    shall := ⟨"say \"later\"", by decide +kernel⟩
     scenarios := ⟨#[{
-      name := ⟨"not yet", by native_decide⟩
-      whenText := ⟨"when", by native_decide⟩
-      thenText := ⟨"then", by native_decide⟩
-      check := .deferred ⟨"fixture missing", by native_decide⟩
-    }], by native_decide⟩
+      name := ⟨"not yet", by decide +kernel⟩
+      whenText := ⟨"when", by decide +kernel⟩
+      thenText := ⟨"then", by decide +kernel⟩
+      check := .deferred ⟨"fixture missing", by decide +kernel⟩
+    }], by decide +kernel⟩
   }]
-  uniqueIds := by native_decide
+  uniqueIds := by decide +kernel
 }
 
 def deferredStmt : VerificationStatement :=
@@ -25,28 +25,28 @@ def deferredStmt : VerificationStatement :=
 
 def witnessedSnap : SpecSnapshot := {
   requirements := #[{
-    id := ⟨"req.done", by native_decide⟩
-    shall := ⟨"it holds", by native_decide⟩
+    id := ⟨"req.done", by decide +kernel⟩
+    shall := ⟨"it holds", by decide +kernel⟩
     scenarios := ⟨#[
-      { name := ⟨"runs", by native_decide⟩
-        whenText := ⟨"when", by native_decide⟩
-        thenText := ⟨"then", by native_decide⟩
+      { name := ⟨"runs", by decide +kernel⟩
+        whenText := ⟨"when", by decide +kernel⟩
+        thenText := ⟨"then", by decide +kernel⟩
         check := .executable },
-      { name := ⟨"later", by native_decide⟩
-        whenText := ⟨"when", by native_decide⟩
-        thenText := ⟨"then", by native_decide⟩
-        check := .deferred ⟨"still open", by native_decide⟩ }
-    ], by native_decide⟩
+      { name := ⟨"later", by decide +kernel⟩
+        whenText := ⟨"when", by decide +kernel⟩
+        thenText := ⟨"then", by decide +kernel⟩
+        check := .deferred ⟨"still open", by decide +kernel⟩ }
+    ], by decide +kernel⟩
   }]
-  uniqueIds := by native_decide
+  uniqueIds := by decide +kernel
   designs := #[{
-    id := ⟨"req.done", by native_decide⟩
-    interfaces := ⟨#[⟨"Iface", by native_decide⟩], by native_decide⟩
-    tests := ⟨#[⟨"test", by native_decide⟩], by native_decide⟩
-    theorems := #[⟨"holds", by native_decide⟩]
+    id := ⟨"req.done", by decide +kernel⟩
+    interfaces := ⟨#[⟨"Iface", by decide +kernel⟩], by decide +kernel⟩
+    tests := ⟨#[⟨"test", by decide +kernel⟩], by decide +kernel⟩
+    theorems := #[⟨"holds", by decide +kernel⟩]
   }]
-  uniqueDesignIds := by native_decide
-  designsLinked := by native_decide
+  uniqueDesignIds := by decide +kernel
+  designsLinked := by decide +kernel
 }
 
 def witnessedStmt : VerificationStatement :=

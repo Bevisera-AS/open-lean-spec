@@ -158,23 +158,23 @@ public def acceptChangeString (s : String) : Except DecodeError Change := do
 
 #guard
   let req : Requirement := {
-    id := ⟨"r", by native_decide⟩
-    shall := ⟨"does a thing", by native_decide⟩
+    id := ⟨"r", by decide +kernel⟩
+    shall := ⟨"does a thing", by decide +kernel⟩
     scenarios := ⟨#[{
-      name := ⟨"n", by native_decide⟩
-      whenText := ⟨"w", by native_decide⟩
-      thenText := ⟨"t", by native_decide⟩
+      name := ⟨"n", by decide +kernel⟩
+      whenText := ⟨"w", by decide +kernel⟩
+      thenText := ⟨"t", by decide +kernel⟩
       check := .executable
-    }], by native_decide⟩
+    }], by decide +kernel⟩
   }
   let c : Change := {
-    id := ⟨"add-r", by native_decide⟩
-    why := ⟨"need r", by native_decide⟩
+    id := ⟨"add-r", by decide +kernel⟩
+    why := ⟨"need r", by decide +kernel⟩
     deltas := ⟨#[.added req, .renamed {
-      frm := ⟨"old", by native_decide⟩
-      to := ⟨"new", by native_decide⟩
-      property := by native_decide
-    }], by native_decide⟩
+      frm := ⟨"old", by decide +kernel⟩
+      to := ⟨"new", by decide +kernel⟩
+      property := by decide +kernel
+    }], by decide +kernel⟩
   }
   match acceptChange (encodeChange c) with
   | .ok c2 => c2 == c
@@ -182,19 +182,19 @@ public def acceptChangeString (s : String) : Except DecodeError Change := do
 
 #guard
   let req : Requirement := {
-    id := ⟨"r", by native_decide⟩
-    shall := ⟨"does a thing", by native_decide⟩
+    id := ⟨"r", by decide +kernel⟩
+    shall := ⟨"does a thing", by decide +kernel⟩
     scenarios := ⟨#[{
-      name := ⟨"n", by native_decide⟩
-      whenText := ⟨"w", by native_decide⟩
-      thenText := ⟨"t", by native_decide⟩
+      name := ⟨"n", by decide +kernel⟩
+      whenText := ⟨"w", by decide +kernel⟩
+      thenText := ⟨"t", by decide +kernel⟩
       check := .executable
-    }], by native_decide⟩
+    }], by decide +kernel⟩
   }
   let c : Change := {
-    id := ⟨"add-r", by native_decide⟩
-    why := ⟨"need r", by native_decide⟩
-    deltas := ⟨#[.added req], by native_decide⟩
+    id := ⟨"add-r", by decide +kernel⟩
+    why := ⟨"need r", by decide +kernel⟩
+    deltas := ⟨#[.added req], by decide +kernel⟩
   }
   match decodeRawChange (encodeRawChange c.toRaw) with
   | .ok raw => raw == c.toRaw

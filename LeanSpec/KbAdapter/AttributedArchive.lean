@@ -121,8 +121,8 @@ public theorem attributedArchive_ok_has_gate {s : SpecSnapshot} (c : ApplicableC
 /-! ## Worked examples -/
 
 private def theGate : Kb.Gate :=
-  { approver := ⟨"alice", by native_decide⟩
-    contentHash := ⟨"sha256:abcd1234", by native_decide⟩ }
+  { approver := ⟨"alice", by decide +kernel⟩
+    contentHash := ⟨"sha256:abcd1234", by decide +kernel⟩ }
 
 -- Declined projects to a plain decline and produces no snapshot.
 #guard (AttributedDecision.declined.toPlain == ArchiveDecision.declined)

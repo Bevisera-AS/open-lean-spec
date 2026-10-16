@@ -11,20 +11,20 @@ public section
 
 /-- Fresh SHALL: archive needs an explicit decision flag, not theme selection. -/
 public def archiveRequiresHuman : Requirement := {
-  id := ⟨"archive.requiresHuman", by native_decide⟩
-  shall := ⟨"Archive merges a change only after ArchiveDecision.accepted; declined leaves the snapshot unchanged. The decision is a caller flag, not a verified identity.", by native_decide⟩
+  id := ⟨"archive.requiresHuman", by decide +kernel⟩
+  shall := ⟨"Archive merges a change only after ArchiveDecision.accepted; declined leaves the snapshot unchanged. The decision is a caller flag, not a verified identity.", by decide +kernel⟩
   scenarios := ⟨#[{
-    name := ⟨"declined writes nothing", by native_decide⟩
-    whenText := ⟨"archive is called with ArchiveDecision.declined", by native_decide⟩
-    thenText := ⟨"the snapshot requirements are unchanged", by native_decide⟩
+    name := ⟨"declined writes nothing", by decide +kernel⟩
+    whenText := ⟨"archive is called with ArchiveDecision.declined", by decide +kernel⟩
+    thenText := ⟨"the snapshot requirements are unchanged", by decide +kernel⟩
     check := .executable
-  }], by native_decide⟩
+  }], by decide +kernel⟩
 }
 
 public def humanAcceptChange : Change := {
-  id := ⟨"add-archive-requires-human", by native_decide⟩
-  why := ⟨"State the human archive gate as a requirement, not only a CLI flag.", by native_decide⟩
-  deltas := ⟨#[.added archiveRequiresHuman], by native_decide⟩
+  id := ⟨"add-archive-requires-human", by decide +kernel⟩
+  why := ⟨"State the human archive gate as a requirement, not only a CLI flag.", by decide +kernel⟩
+  deltas := ⟨#[.added archiveRequiresHuman], by decide +kernel⟩
 }
 
 public def emptySnapshot : SpecSnapshot := SpecSnapshot.empty

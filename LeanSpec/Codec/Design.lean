@@ -52,11 +52,11 @@ public def acceptDesignUnit (j : Json) : Except DecodeError DesignUnit :=
 
 #guard
   let d : DesignUnit := {
-    id := ⟨"theme.selection", by native_decide⟩
-    interfaces := ⟨#[⟨"Theme", by native_decide⟩], by native_decide⟩
-    functions := #[⟨"toggleDark", by native_decide⟩]
-    tests := ⟨#[⟨"toggleDarkCheck", by native_decide⟩], by native_decide⟩
-    theorems := #[⟨"toggleDarkCheck_of_light", by native_decide⟩]
+    id := ⟨"theme.selection", by decide +kernel⟩
+    interfaces := ⟨#[⟨"Theme", by decide +kernel⟩], by decide +kernel⟩
+    functions := #[⟨"toggleDark", by decide +kernel⟩]
+    tests := ⟨#[⟨"toggleDarkCheck", by decide +kernel⟩], by decide +kernel⟩
+    theorems := #[⟨"toggleDarkCheck_of_light", by decide +kernel⟩]
   }
   match acceptDesignUnit (encodeDesignUnit d) with
   | .ok got => got == d

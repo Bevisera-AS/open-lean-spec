@@ -250,13 +250,13 @@ end
 /-! ## Worked examples (executable `#guard`s) -/
 
 private def nb (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : NonBlank := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : NonBlank := ⟨s, h⟩
 
 private def rid (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : ReflectionId := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : ReflectionId := ⟨s, h⟩
 
 private def runid (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : RunId := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : RunId := ⟨s, h⟩
 
 -- A learning consolidated from *two* runs — the WikiSkill move a one-shot
 -- `traceRef` could not express.
@@ -264,7 +264,7 @@ private def consolidated : Reflection :=
   { id := rid "wiki.nonemptyarray-obligation"
     kind := .failureMode
     learning := nb "Agents forget the NonEmptyArray obligation on scenario lists"
-    derivedFrom := ⟨#[runid "run-001", runid "run-007"], by decide⟩
+    derivedFrom := ⟨#[runid "run-001", runid "run-007"], by decide +kernel⟩
     promoted := .skill }
 
 -- Coherent when both source runs are known.

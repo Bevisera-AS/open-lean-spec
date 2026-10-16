@@ -10,11 +10,11 @@ namespace LeanSpec.Demo.SkillSyntax
 open LeanSpec
 
 skill ping := {
-  id := ⟨"demo.ping", by native_decide⟩
-  oneLiner := ⟨"Demo skill declared with the skill command.", by native_decide⟩
-  purpose := ⟨"Show that `skill` expands to a ProcessSkill.", by native_decide⟩
-  rules := ⟨#[⟨"Lean ProcessSkill values are the instructions.", by native_decide⟩], by native_decide⟩
-  antipatterns := #[⟨"Treating Markdown as the skill source.", by native_decide⟩]
+  id := ⟨"demo.ping", by decide +kernel⟩
+  oneLiner := ⟨"Demo skill declared with the skill command.", by decide +kernel⟩
+  purpose := ⟨"Show that `skill` expands to a ProcessSkill.", by decide +kernel⟩
+  rules := ⟨#[⟨"Lean ProcessSkill values are the instructions.", by decide +kernel⟩], by decide +kernel⟩
+  antipatterns := #[⟨"Treating Markdown as the skill source.", by decide +kernel⟩]
 }
 
 #guard ping.wellFormed

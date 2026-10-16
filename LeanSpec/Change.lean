@@ -89,7 +89,7 @@ public theorem parse_sound
 public theorem parse_complete (move : Rename) (path : String) :
     parse path move.frm.value move.to.value = .ok move := by
   simp [parse, RequirementId.parse_complete]
-  rw [dif_neg move.property]
+  rw [dite_eq_right move.property]
 
 end Rename
 

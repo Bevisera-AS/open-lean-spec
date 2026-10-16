@@ -14,6 +14,21 @@ scenario lists, and malformed ids are compile errors, not lint warnings. A
 human-friendly `requirement` syntax keeps the source readable without giving up
 the guarantees.
 
+## Background and naming
+
+lean-spec is inspired by [OpenSpec](https://github.com/Fission-AI/OpenSpec), a
+spec-driven development framework for AI coding assistants. We follow its workflow:
+propose a change as deltas against the current spec, apply it, then archive it into
+the spec. OpenSpec keeps those specs in Markdown. lean-spec keeps them as typed Lean
+values, so the checks on them are compile errors and kernel-checked proofs.
+
+The name clashes with
+[`paulch42/lean-spec`](https://github.com/paulch42/lean-spec), "Program Specification
+in Lean 4", a tutorial on using Lean to specify *what* a program must achieve, with
+worked examples. The two projects are unrelated and have different goals. That one
+teaches formal specification in Lean. This one is a toolkit for keeping a product's
+requirements, and an agent's changes to them, as proof-carrying Lean values.
+
 ## Why Lean, not Markdown
 
 - **Fail-closed.** A `Requirement` with no scenarios cannot be constructed. The
@@ -103,6 +118,18 @@ lake build
 lake test
 ```
 
+There is no `native_decide` in lean-spec: every proof, including those on concrete
+literals, is checked by the Lean kernel (`decide +kernel`). Under Lean 4.35.0,
+`lake check --paranoid` accepts the development with all six bundled checkers,
+including the verified kernels con-leche and con-ron. `lake check` needs Linux, since
+its sandbox uses `bwrap`. It also cannot export this project directly, because the
+two executables both define `main`. Export the library modules with `leanexport` and
+pass the file with `lake check --from-export=<file> --paranoid`.
+[`docs/lake-check-paranoid-report.md`](docs/lake-check-paranoid-report.md) records
+what the checkers found before and after the change, why, and how to reproduce the
+run. So far the run has been done without the sandbox, on macOS; a sandboxed Linux
+run is still to do.
+
 ## Layout
 
 - `LeanSpec/Types.lean` — `Requirement`, `Scenario`, `CheckStatus` by construction; `Raw` + validation retraction.
@@ -114,9 +141,13 @@ lake test
 - `LeanSpec/Elab/Verification.lean` — `verification_statement`, collecting axioms via `#print axioms`.
 - `LeanSpec/Demo/` — usage examples only. No solution content; requirements here exist to show the syntax.
 
-## Notes (Lean 4.33)
+## Notes (Lean 4.35)
 
 - After `module`, no doc comment before `import`.
+- Write decidable predicates over `List` (`s.toList.any …`, `arr.toList.all …`), not
+  `String.any`/`splitOn` or `Array.all`/`any`. The kernel cannot evaluate the latter,
+  so `decide +kernel` would get stuck. Mark definitions that other modules' proofs
+  unfold `@[expose]`.
 - Cross-file `#guard` needs `public meta import` of the module defining the checker.
 - A `/--` doc comment cannot sit immediately before a `spec` or `requirement` command; use a plain `/-` comment.
 

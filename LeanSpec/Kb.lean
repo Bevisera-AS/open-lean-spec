@@ -56,30 +56,21 @@ proved with kernel tactics (`simp`, `cases`, `omega`, `rfl`, `congr`). They do
 **not** depend on `native_decide` (only `propext`/`Quot.sound`), so the guarantees
 rest on the Lean kernel alone.
 
-`native_decide` still appears in three narrow, deliberate roles, none of which is a
-guarantee:
+Concrete values are kernel-checked too. Literal test data, smart-constructor
+defaults (`nb`/`rid`/`runid`), invariant defaults on store constructors
+(`SpecSnapshot.uniqueDesignIds`, `designsLinked`, `empty`; `NonEmptyArray` size
+proofs) and the fixed-string redaction lemmas (`redactMarker_clean`,
+`redactedLearning_clean`, `specRedacted_clean`) are discharged by `decide +kernel`:
+the kernel evaluates the predicate itself, adding no axiom.
 
-1. **Example `#guard`s and literal test data.** The worked examples below and the
-   `nb`/`rid`/`runid` smart-constructor defaults discharge `nonemptyText "..."` on
-   fixed string literals. These are compile-time sanity checks, not the library's
-   theorems.
-
-2. **Invariant defaults on store constructors** (`SpecSnapshot.uniqueDesignIds`,
-   `designsLinked`, `empty`; `NonEmptyArray` size proofs). These establish a
-   decidable predicate about a *concrete* array at construction time.
-
-3. **Fixed-string cleanliness lemmas** for redaction (`redactMarker_clean` and the
-   adapters' `redactedLearning_clean`/`specRedacted_clean`).
-
-Roles 2 and 3 are load-bearing but **cannot** be moved to kernel `decide`: every
-predicate here bottoms out in `String` operations (`nonemptyText`, `splitOn`,
-`Nodup`/`Pairwise` over `.value` strings), and the Lean kernel does not reduce
-`String` computations — plain `decide` gets stuck even on `#[]` or `"[REDACTED]"`.
-The realistic alternatives are `native_decide` (trusts the compiler + the
-`Decidable` instance) or a bespoke `simp` proof with `String` lemmas. We keep
-`native_decide` for these, and localise it: it never gates a generic guarantee,
-only the construction of concrete values whose predicate the kernel cannot evaluate
-directly.
+That works because every such predicate is written over `List`, which the kernel
+reduces, rather than over the `String`/`Array` API, which it does not (`String.any`
+and `splitOn` sit on UTF-8 byte arrays; `Array.all`/`any` on a well-founded loop).
+So `nonemptyText`, `ValidRequirementId`, secret detection (`LeanUtil.hasInfix`) and
+the catalog invariants fold over `toList`, and definitions they unfold across modules
+are `@[expose]`. Keep new predicates in that form: a `native_decide` anywhere puts a
+compiler-trust axiom into the export, and the external kernels behind
+`lake check --paranoid` (nanoda, con-leche, con-ron) refuse the whole development.
 
 Other TCB caveats documented elsewhere: `CheckStatus.executable` is a *claim* a
 named checker exists, not its kernel derivation (`Types.lean`); atomic-write
@@ -318,7 +309,7 @@ public theorem record_preserves_provenance {P S : Type} [Identified P] [BEq S]
     {s : S} (hs : s ∈ b.item.provenance.items) :
     s ∈ (mergeStep sameAs a i b).item.provenance.items := by
   unfold mergeStep
-  rw [if_pos hmatch]
+  rw [ite_eq_left hmatch]
   simp only [merge]
   exact mem_dedupUnion_left hs
 
@@ -328,9 +319,11 @@ public theorem record_preserves_provenance {P S : Type} [Identified P] [BEq S]
 is the store-crossing hook: for the valve, a proved spec item cites a provisional
 reflection; `resolve` confirms the reflection exists but the citer's assurance is
 untouched (it is not a function of `resolve`). Generic version of
-`Reflection.coherentIn` / `Morphism.coherentInWiki` / `ReflectedChange.coherentInWiki`. -/
+`Reflection.coherentIn` / `Morphism.coherentInWiki` / `ReflectedChange.coherentInWiki`.
+Folds over `srcs.toList`: the kernel evaluates the list form reliably, which
+`Array.all`'s well-founded loop does not, so a literal obligation is `by decide +kernel`. -/
 @[expose] public def coherentVia {S : Type} (resolve : S → Bool) (srcs : Array S) : Bool :=
-  srcs.all resolve
+  srcs.toList.all resolve
 
 /-- **Refusal of fabricated provenance.** A source that does not resolve makes the
 whole citation incoherent. One theorem replaces the per-axis `_rejects_unknown`
@@ -340,11 +333,11 @@ public theorem coherentVia_rejects_unknown {S : Type}
     (hx : x ∈ srcs) (hbad : resolve x = false) :
     coherentVia resolve srcs = false := by
   simp only [coherentVia]
-  cases hc : srcs.all resolve with
+  cases hc : srcs.toList.all resolve with
   | false => rfl
   | true =>
-    rw [Array.all_eq_true_iff_forall_mem] at hc
-    have := hc x hx
+    rw [List.all_eq_true] at hc
+    have := hc x (Array.mem_toList_iff.mpr hx)
     rw [hbad] at this
     exact absurd this (by simp)
 
@@ -571,18 +564,18 @@ private instance : Identified AgentReflection where idOf r := r.refId
 -- (replace, don't try to surgically edit).
 private def redactMarker : String := "[REDACTED]"
 
-private def sensitive (s : String) : Bool := (s.splitOn "SECRET:").length != 1
+private def sensitive (s : String) : Bool := LeanUtil.hasInfix "SECRET:".toList s.toList
 
 private def scrub (s : String) : String :=
   if sensitive s then redactMarker else s
 
-private theorem redactMarker_clean : sensitive redactMarker = false := by native_decide
+private theorem redactMarker_clean : sensitive redactMarker = false := by decide +kernel
 
 private theorem scrub_idem (s : String) : scrub (scrub s) = scrub s := by
   unfold scrub
   split
   · -- outer input was sensitive → inner is `redactMarker`, which is not sensitive
-    rw [if_neg (by rw [redactMarker_clean]; decide)]
+    rw [ite_eq_right (by rw [redactMarker_clean]; decide)]
   · -- outer input was already clean → inner sees the same (clean) string
     rfl
 
@@ -595,7 +588,7 @@ private instance : Redactable AgentReflection where
   redact_idempotent r := by simp only [scrub_idem]
 
 private def nb (s : String)
-    (h : LeanUtil.nonemptyText s = true := by native_decide) : NonBlank := ⟨s, h⟩
+    (h : LeanUtil.nonemptyText s = true := by decide +kernel) : NonBlank := ⟨s, h⟩
 
 private def ne (s : String) : NonEmptyArray String := ⟨#[s], by simp⟩
 
@@ -611,11 +604,11 @@ private def specItem : Boxed HumanReq String :=
 private def wikiItem : Boxed AgentReflection String :=
   { assurance := .provisional
     item := { payload := { refId := "wiki.enum-canary", learning := "guards catch typos" }
-              provenance := ⟨#["run-001", "run-002"], by native_decide⟩ } }
+              provenance := ⟨#["run-001", "run-002"], by decide +kernel⟩ } }
 
 -- Both stores are `Store P S` at different (P, S). Uniqueness proved by the generic instance.
-private def specStore : Store HumanReq String := { items := #[specItem], uniqueIds := by native_decide }
-private def wikiStore : Store AgentReflection String := { items := #[wikiItem], uniqueIds := by native_decide }
+private def specStore : Store HumanReq String := { items := #[specItem], uniqueIds := by decide +kernel }
+private def wikiStore : Store AgentReflection String := { items := #[wikiItem], uniqueIds := by decide +kernel }
 
 -- Store membership works uniformly on both axes.
 #guard specStore.hasId "page.overview"
@@ -628,7 +621,7 @@ private def launderAttempt : Boxed AgentReflection String :=
   let other : Boxed AgentReflection String :=
     { assurance := .proved
       item := { payload := { refId := "wiki.enum-canary", learning := "guards catch typos" }
-                provenance := ⟨#["run-003"], by native_decide⟩ } }
+                provenance := ⟨#["run-003"], by decide +kernel⟩ } }
   merge { refId := "wiki.enum-canary", learning := "guards catch typos" } wikiItem other rfl
 
 #guard launderAttempt.assurance == Assurance.provisional          -- meet, not join
@@ -643,7 +636,7 @@ private def newRefl : Item .provisional AgentReflection String :=
     provenance := ne "run-009" }
 private def moreRuns : Item .provisional AgentReflection String :=
   { payload := { refId := "wiki.enum-canary", learning := "guards catch typos" }
-    provenance := ⟨#["run-003"], by native_decide⟩ }
+    provenance := ⟨#["run-003"], by decide +kernel⟩ }
 
 -- New id → appended (store grows to two entries).
 #guard (wikiStore.record (fun b => b.id == "wiki.read-first") .provisional newRefl).items.size == 2
@@ -666,7 +659,7 @@ private def resolveAgainstWiki (s : String) : Bool := wikiStore.hasId s
 -- passes through. Privacy holds uniformly on both payload types.
 private def secretRefl : Item .provisional AgentReflection String :=
   { payload := { refId := "wiki.leak", learning := "note SECRET: patient SSN 123-45-6789" }
-    provenance := ⟨#["run-050"], by native_decide⟩ }
+    provenance := ⟨#["run-050"], by decide +kernel⟩ }
 #guard (admit secretRefl).item.payload.learning == "[REDACTED]"     -- scrubbed on entry
 #guard (admit wikiItem.item).item.payload.learning == "guards catch typos"  -- clean passes
 
@@ -676,7 +669,7 @@ private def theGate : Gate := { approver := nb "alice", contentHash := nb "sha25
 
 -- Step 1: provisional → coherent requires a discharged coherence proof.
 private def coherentStep : Boxed AgentReflection String :=
-  promote wikiItem.item (.toCoherent (coherentVia resolveAgainstWiki #["wiki.enum-canary"]) (by native_decide))
+  promote wikiItem.item (.toCoherent (coherentVia resolveAgainstWiki #["wiki.enum-canary"]) (by decide +kernel))
 #guard coherentStep.assurance == Assurance.coherent
 
 -- Step 2: coherent → proved requires the attributed human gate. Rebuild the item

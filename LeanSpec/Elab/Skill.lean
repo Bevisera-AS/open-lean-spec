@@ -23,10 +23,10 @@ public def skillIdTaken (skills : Array ProcessSkill) (id : String) : Bool :=
 #guard !skillIdTaken #[] "demo.ping"
 #guard
   skillIdTaken #[{
-    id := ⟨"demo.ping", by native_decide⟩
-    oneLiner := ⟨"x", by native_decide⟩
-    purpose := ⟨"y", by native_decide⟩
-    rules := ⟨#[⟨"z", by native_decide⟩], by native_decide⟩
+    id := ⟨"demo.ping", by decide +kernel⟩
+    oneLiner := ⟨"x", by decide +kernel⟩
+    purpose := ⟨"y", by decide +kernel⟩
+    rules := ⟨#[⟨"z", by decide +kernel⟩], by decide +kernel⟩
   }] "demo.ping"
 
 end
@@ -68,7 +68,7 @@ elab "registeredSkills%" : term => unsafe do
 Duplicate Lean names and duplicate `ProcessSkill.id` values fail at elaboration.
 Catalog membership stays explicit; this is not company-pack content. -/
 elab "skill " name:ident " := " body:term : command => unsafe do
-  elabCommand (← `(command| public def $name : ProcessSkill := $body))
+  elabCommand (← `(command| @[expose] public def $name : ProcessSkill := $body))
   let declName := (← getCurrNamespace) ++ name.getId
   let env ← getEnv
   if (skillEntries env).any (fun (n, _) => n == declName) then

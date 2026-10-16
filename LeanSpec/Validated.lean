@@ -126,14 +126,14 @@ public theorem parse_complete {path : String} (result : NonBlank) :
 end NonBlank
 
 /-- ASCII letters are used so requirement IDs have a stable cross-platform grammar. -/
-public def isAsciiLetter (c : Char) : Bool :=
+@[expose] public def isAsciiLetter (c : Char) : Bool :=
   ('a' ≤ c && c ≤ 'z') || ('A' ≤ c && c ≤ 'Z')
 
-public def isAsciiDigit (c : Char) : Bool :=
+@[expose] public def isAsciiDigit (c : Char) : Bool :=
   '0' ≤ c && c ≤ '9'
 
 /-- A requirement-ID segment starts with a letter and then uses letters, digits, `-`, or `_`. -/
-public def validRequirementIdSegment : List Char → Bool
+@[expose] public def validRequirementIdSegment : List Char → Bool
   | [] => false
   | first :: rest =>
       isAsciiLetter first &&
@@ -144,12 +144,11 @@ Requirement IDs are one or more nonempty dot-separated segments. Each segment st
 ASCII letter and continues with ASCII letters, digits, `-`, or `_`.
 -/
 public abbrev ValidRequirementId (value : String) : Prop :=
-  (value.splitOn ".").all (fun segment => validRequirementIdSegment segment.toList) = true
+  (LeanUtil.splitChars '.' value.toList).all validRequirementIdSegment = true
 
 public instance (value : String) : Decidable (ValidRequirementId value) :=
   by
-    change Decidable (
-      (value.splitOn ".").all (fun segment => validRequirementIdSegment segment.toList) = true)
+    change Decidable ((LeanUtil.splitChars '.' value.toList).all validRequirementIdSegment = true)
     infer_instance
 
 /-- A requirement identifier carrying evidence that it follows `ValidRequirementId`. -/
@@ -211,11 +210,11 @@ public theorem parse_complete {path : String} (result : RequirementId) :
 end RequirementId
 
 /-- Dotted skill id. Absolute paths, leading dots/dashes, and directory separators are refused. -/
-public def validProcessSkillId (s : String) : Bool :=
+@[expose] public def validProcessSkillId (s : String) : Bool :=
   LeanUtil.nonemptyText s &&
-    !s.startsWith "." &&
-    !s.startsWith "-" &&
-    s.all fun c => c.isAlphanum || c == '.' || c == '-'
+    s.toList.head? != some '.' &&
+    s.toList.head? != some '-' &&
+    s.toList.all fun c => c.isAlphanum || c == '.' || c == '-'
 
 public abbrev ValidProcessSkillId (value : String) : Prop :=
   validProcessSkillId value = true
@@ -340,7 +339,7 @@ public theorem ofArray_complete {path : String} (result : NonEmptyArray α) :
 public def head (items : NonEmptyArray α) : α :=
   items.items[0]'items.property
 
-public def toArray (items : NonEmptyArray α) : Array α := items.items
+@[expose] public def toArray (items : NonEmptyArray α) : Array α := items.items
 
 public theorem toArray_not_isEmpty (items : NonEmptyArray α) : items.toArray.isEmpty = false := by
   simp [toArray]
@@ -448,7 +447,7 @@ public theorem parseProcessSkillIdList_complete
     (path : String) (i : Nat) (parsed : List ProcessSkillId) :
     parseProcessSkillIdList path i (parsed.map (·.value)) = .ok parsed := by
   unfold parseProcessSkillIdList
-  exact parseList_complete (fun n => n.value) ProcessSkillId.parse
+  exact parseList_complete (fun (n : ProcessSkillId) => n.value) ProcessSkillId.parse
     (fun e => ProcessSkillId.parse_complete e) path i parsed
 
 end

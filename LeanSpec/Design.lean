@@ -30,7 +30,7 @@ public inductive Surface where
 
 /-- Policy: web artifacts must target TypeScript; native artifacts use any of the
 non-web strongly-typed targets (Lean 4 preferred, then Scala/Rust, Java via Strata). -/
-public def TargetLang.allowedFor : Surface → TargetLang → Bool
+@[expose] public def TargetLang.allowedFor : Surface → TargetLang → Bool
   | .web,    .typescript => true
   | .web,    _           => false
   | .native, .typescript => false
@@ -112,7 +112,7 @@ public structure DesignUnit where
   id : RequirementId
   surface : Surface := .native
   target : TargetLang := .lean4
-  targetAllowed : AllowedTarget surface target := by native_decide
+  targetAllowed : AllowedTarget surface target := by decide +kernel
   interfaces : NonEmptyArray NonBlank
   functions : Array NonBlank := #[]
   tests : NonEmptyArray NonBlank

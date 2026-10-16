@@ -23,14 +23,14 @@ public def requirementIdTaken (requirements : Array Requirement) (id : String) :
 #guard !requirementIdTaken #[] "demo.requirement"
 #guard
   requirementIdTaken #[{
-    id := ⟨"demo.requirement", by native_decide⟩
-    shall := ⟨"x", by native_decide⟩
+    id := ⟨"demo.requirement", by decide +kernel⟩
+    shall := ⟨"x", by decide +kernel⟩
     scenarios := ⟨#[{
-      name := ⟨"n", by native_decide⟩
-      whenText := ⟨"w", by native_decide⟩
-      thenText := ⟨"t", by native_decide⟩
+      name := ⟨"n", by decide +kernel⟩
+      whenText := ⟨"w", by decide +kernel⟩
+      thenText := ⟨"t", by decide +kernel⟩
       check := .executable
-    }], by native_decide⟩
+    }], by decide +kernel⟩
   }] "demo.requirement"
 
 end
@@ -73,7 +73,7 @@ Duplicate Lean names, duplicate `Requirement.id` values and duplicate scenario
 names within one requirement fail at elaboration.
 Snapshot membership stays explicit; this command does not write the store. -/
 elab "spec " name:ident " := " body:term : command => unsafe do
-  elabCommand (← `(command| public def $name : Requirement := $body))
+  elabCommand (← `(command| @[expose] public def $name : Requirement := $body))
   let declName := (← getCurrNamespace) ++ name.getId
   let env ← getEnv
   if (specEntries env).any (fun (n, _) => n == declName) then
