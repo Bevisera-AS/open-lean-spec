@@ -108,27 +108,30 @@ The digest is a fingerprint, not a signature: it detects a changed spec, it does
 not resist deliberate forgery. The statement cannot know its own commit; commit
 it next to the spec so the commit binds it.
 
-`lake build` elaborates the theme demo and produces `lean-spec-verification`,
-which prints that statement.
+`lake build` elaborates the theme demo. `lake build lean-spec-verification` builds
+the executable that prints that statement.
 
 ## Validate
 
 ```sh
-lake build
+lake build                                   # library, demos, test modules
+lake build lean-spec lean-spec-verification  # the two executables
 lake test
+lake check --paranoid                        # Linux only; see below
 ```
 
 There is no `native_decide` in lean-spec: every proof, including those on concrete
 literals, is checked by the Lean kernel (`decide +kernel`). Under Lean 4.35.0,
-`lake check --paranoid` accepts the development with all six bundled checkers,
-including the verified kernels con-leche and con-ron. `lake check` needs Linux, since
-its sandbox uses `bwrap`. It also cannot export this project directly, because the
-two executables both define `main`. Export the library modules with `leanexport` and
-pass the file with `lake check --from-export=<file> --paranoid`.
+`lake check --paranoid` accepts the development, sandboxed, with all six bundled
+checkers, including the verified kernels con-leche and con-ron. CI runs it on every
+merge request, on `main` and on tags.
+
+`lake check` sandboxes the build with `bwrap`, so it needs Linux user namespaces. In
+Docker that means `--privileged`; on Ubuntu 24.04 it means lifting AppArmor's
+`kernel.apparmor_restrict_unprivileged_userns`. Keep the Lean toolchain outside the
+project directory, or `lake check` stalls at "Resolving dependencies".
 [`docs/lake-check-paranoid-report.md`](docs/lake-check-paranoid-report.md) records
-what the checkers found before and after the change, why, and how to reproduce the
-run. So far the run has been done without the sandbox, on macOS; a sandboxed Linux
-run is still to do.
+what the checkers found, why, and how the CI job is set up.
 
 ## Layout
 

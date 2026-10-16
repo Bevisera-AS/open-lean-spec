@@ -1,0 +1,92 @@
+# CI for the GitHub mirror of open-lean-spec.
+#
+# GitLab (bevisera/open-lean-spec) is canonical and runs .gitlab-ci.yml. This
+# workflow runs the same two checks on the read-only GitHub mirror, so the result is
+# visible where the mirror is read:
+#
+#   verify        `lake build` (library plus both executables) and `lake test`.
+#   kernel-check  `lake check --paranoid`, sandboxed. Builds and exports the default
+#                 target inside a `bwrap` sandbox and replays it through every
+#                 checker bundled with Lean, including the verified kernels
+#                 con-leche and con-ron. Fails on any rejection or non-standard
+#                 axiom. See docs/lake-check-paranoid-report.md.
+#
+# GitHub-hosted runners are VMs, so `bwrap` runs directly on the host, with no
+# privileged container. Ubuntu 24.04 restricts unprivileged user namespaces through
+# AppArmor, and the sandbox needs them, so `kernel-check` lifts that restriction for
+# the job (the VM is discarded afterwards).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.elan
+          key: elan-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}
+      - name: Install Lean toolchain
+        run: |
+          if ! command -v lake > /dev/null 2>&1 && [ ! -x "$HOME/.elan/bin/lake" ]; then
+            curl -sSfL https://elan.lean-lang.org/elan-init.sh \
+              | sh -s -- -y --default-toolchain "$(cat lean-toolchain)"
+          fi
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - run: lean --version && lake --version
+      - run: lake build
+      - run: lake build lean-spec lean-spec-verification
+      - run: lake test
+
+  kernel-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.elan
+          key: elan-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}
+      - name: Install Lean toolchain
+        run: |
+          if ! command -v lake > /dev/null 2>&1 && [ ! -x "$HOME/.elan/bin/lake" ]; then
+            curl -sSfL https://elan.lean-lang.org/elan-init.sh \
+              | sh -s -- -y --default-toolchain "$(cat lean-toolchain)"
+          fi
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Prepare the bwrap sandbox
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-all --die-with-parent true
+      - run: lean --version && lake --version
+      # Sandboxed: no --from-export, no --inadvisably-no-sandbox.
+      - name: lake check --paranoid
+        run: |
+          status=0
+          lake check --paranoid > lake-check.log 2>&1 || status=$?
+          cat lake-check.log
+          exit $status
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lake-check-log
+          path: lake-check.log
+          retention-days: 30

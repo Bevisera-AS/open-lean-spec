@@ -26,6 +26,12 @@ and what we changed.
 `lake check` exits 0. No checker ever rejected a proof on its merits. Every failure
 had one cause, explained below.
 
+**Sandboxed confirmation.** The runs above used `--inadvisably-no-sandbox` on macOS
+and a hand-made export. After the fixes in Finding 3, plain `lake check --paranoid`
+was run with the sandbox on and nothing exported by hand, on Linux, in the CI image
+(`ci/Dockerfile`, Docker `--privileged`). All six checkers accepted 93,007
+declarations; the build itself happened inside the sandbox. The run took 9 min 40 s.
+
 ## Finding 1 — `native_decide` axioms (all three rejections)
 
 **What was reported.** Lean's kernel accepted everything, but the axiom check listed
@@ -90,54 +96,69 @@ predicate defined in module A unless A exposes it.
 **Fix.** The predicates, the values they unfold and the defs that `spec` and `skill`
 generate are `@[expose]`.
 
-## Finding 3 — tooling limitations (not about lean-spec's proofs)
+## Finding 3 — tooling and sandbox setup (not about lean-spec's proofs)
 
-These shaped how the check was run. None of them is a defect in lean-spec's proofs.
+These shaped how the check is run. None of them is a defect in lean-spec's proofs.
 
-1. **The sandbox needs Linux.** `lake check` sandboxes the project with `bwrap`, which
-   needs Linux namespaces. On macOS it stops with exit 2. These runs used
-   `--inadvisably-no-sandbox` on our own code. The sandbox protects the checker from an
-   untrusted project, so this does not change what the checkers decided about the
-   proofs. It does mean the runs are not the official, sandboxed configuration. To be
-   done: repeat in a Linux container before quoting the result externally.
-2. **Two executables both define `main`.** Without `--from-export`, `lake check`
-   imports every default target into one environment and fails with
-   `environment already contains 'main'`. That happens because `lean-spec` and
-   `lean-spec-verification` each have a `main`. This is a limitation of `lake check`,
-   not an error. We exported instead: one throwaway module importing every library
-   module except the three `main` roots, exported with `leanexport`, and checked with
-   `lake check --from-export=<file> --paranoid`.
-3. **`leanexport` with several module arguments panics** (`Option.get!`, `value is
-   none`). It works with a single root module, so we used one umbrella module. This
+1. **Two executables both define `main`. Fixed.** `lake check` imports every
+   default target into one environment. `lean-spec` and `lean-spec-verification`
+   each have a `main`, so it failed with `environment already contains 'main'`. The
+   first runs worked around this with a hand-made export. Now the library is the
+   only default target, and it includes the test modules (`.submodules
+   LeanSpec.Tests`) so they are checked too. The executables build by name:
+   `lake build lean-spec lean-spec-verification`.
+2. **The sandbox needs Linux user namespaces.** `lake check` sandboxes the build with
+   `bwrap`. On macOS it stops with exit 2. Docker's default seccomp profile blocks
+   namespace creation; with seccomp unconfined, `bwrap` still cannot mount `/proc`.
+   Only `--privileged` works, which on GitLab means a runner that starts job
+   containers privileged (GitLab.com's shared runners do). On GitHub's
+   `ubuntu-24.04` runners the job runs on the VM, but AppArmor restricts
+   unprivileged user namespaces, so the workflow sets
+   `kernel.apparmor_restrict_unprivileged_userns=0` first.
+3. **`bwrap` needs `/run/user` to exist.** In a slim image it fails with
+   `Can't mkdir /run/user: Read-only file system`. The CI image creates the
+   directory, and the GitLab job does too.
+4. **The toolchain must live outside the project.** With `ELAN_HOME` under the
+   project directory, which is where GitLab's cache wants it, `lake check` stalls at
+   "Resolving dependencies". With the toolchain in `/opt/elan` or the user's home it
+   proceeds normally. The GitLab `kernel-check` job therefore installs to
+   `/opt/elan` and skips the cache. The pinned CI image already has the toolchain
+   there.
+5. **`leanexport` with several module arguments panics** (`Option.get!`, `value is
+   none`). It works with a single root module. This is no longer needed here, but
    may be worth reporting upstream.
-4. **Stale `.olean` files.** The build directory still held `.olean` files for modules
-   that were removed long ago (`LeanSpec.Agent.*`, `Cli`, `Render`). They do not affect
-   the build, but anything that lists modules from `.lake/build` picks them up, so list
-   modules from the source tree.
+6. **Stale `.olean` files.** The build directory held `.olean` files for modules that
+   were removed long ago (`LeanSpec.Agent.*`, `Cli`, `Render`). They do not affect
+   the build, but anything that lists modules from `.lake/build` picks them up.
 
 ## Reproduce
 
-On Linux, drop `--inadvisably-no-sandbox`:
+On Linux, with user namespaces available:
 
 ```sh
-lake build && lake build lean-spec-tests
-# One umbrella module importing every library module except the three `main` roots.
-(find LeanSpec -name '*.lean'; echo LeanSpec.lean; echo LeanUtil.lean; echo LeanJson.lean) \
-  | sed 's/\.lean$//; s#/#.#g' | sort -u \
-  | grep -vxE 'LeanSpec\.Query|LeanSpec\.Demo\.PrintVerification|LeanSpec\.Tests' \
-  | sed 's/^/import /' > LeanSpecAll.lean
-lake env lean LeanSpecAll.lean -o .lake/build/lib/lean/LeanSpecAll.olean
-lake env leanexport LeanSpecAll > lean-spec.ndjson
-rm LeanSpecAll.lean .lake/build/lib/lean/LeanSpecAll.*
-lake check --from-export=lean-spec.ndjson --paranoid
+lake check --paranoid
 ```
 
-The export is about 450 MB, most of it Lean core. The full paranoid run took about
-9 minutes on an Apple M2 Pro.
+Locally on any machine with Docker, using the CI image:
+
+```sh
+docker build --build-arg LEAN_TOOLCHAIN="$(cat lean-toolchain)" -t lean-spec-ci ci
+docker run --rm --privileged -v "$PWD":/work -w /work lean-spec-ci lake check --paranoid
+```
+
+Run this on a clean checkout. A `.lake` directory built on macOS holds the wrong
+platform's binaries. The full run takes about 10 minutes.
+
+## In CI
+
+`.gitlab-ci.yml` has a `kernel-check` job that runs `lake check --paranoid`,
+sandboxed, on merge requests, on the default branch and on tags. It keeps the log as
+an artifact. The public repository's GitHub mirror runs the same check in
+`.github/workflows/ci.yml`. Neither ever passes `--inadvisably-no-sandbox`.
 
 ## Keeping it this way
 
 A single `native_decide` anywhere makes three of the six checkers refuse the whole
-development again. When you add a decidable predicate, write it over `List`, mark it
-`@[expose]` if other modules' proofs unfold it, and prove literals with
-`by decide +kernel`. The README's notes say the same.
+development, and now it also fails CI. When you add a decidable predicate, write it
+over `List`, mark it `@[expose]` if other modules' proofs unfold it, and prove
+literals with `by decide +kernel`. The README's notes say the same.

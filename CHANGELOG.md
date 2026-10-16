@@ -17,6 +17,22 @@ development (see `LeanSpec/Kb.lean`'s trust-boundary note).
   after this change, why, and how to reproduce it.
 - README credits OpenSpec as the inspiration and notes the name clash with
   `paulch42/lean-spec`, a project with a different goal.
+- **CI runs `lake check --paranoid`, sandboxed.** A new `kernel-check` job in
+  `.gitlab-ci.yml` runs on merge requests, on `main` and on tags, and fails on any
+  checker rejection or non-standard axiom. It needs a runner that starts containers
+  privileged, because `bwrap` needs user namespaces. The public repository's GitHub
+  mirror gets `.github/workflows/ci.yml` with the same `verify` and `kernel-check`
+  jobs. Confirmed locally in the CI image: with the sandbox on, all six checkers
+  accept.
+- The CI image (`ci/Dockerfile`) is Lean 4.35.0 and adds `bubblewrap` and
+  `/run/user`, which the sandbox needs.
+
+### Changed (build)
+- **The executables are no longer default targets.** `lake build` builds the library,
+  demos and test modules. Build the executables with
+  `lake build lean-spec lean-spec-verification`. This change lets `lake check` work
+  directly: it imports all default targets together, and each executable defines
+  `main`.
 
 ### Changed
 - **No `native_decide` anywhere; every proof is checked by the kernel.** All ~460
