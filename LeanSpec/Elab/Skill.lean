@@ -7,8 +7,8 @@ public import Lean.Meta.Eval
 public meta import Lean.Elab.Command
 public meta import Lean.Elab.Term
 public meta import Lean.Meta.Eval
-public import LeanSpec.Types
-public meta import LeanSpec.Types
+public import LeanSpec.ProcessSkill
+public meta import LeanSpec.ProcessSkill
 
 open Lean Elab Command Term Meta
 

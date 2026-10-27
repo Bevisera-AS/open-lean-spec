@@ -1,9 +1,9 @@
 module
 
 public import LeanSpec.Elab.Skill
-public import LeanSpec.Types
+public import LeanSpec.ProcessSkill
 public meta import LeanSpec.Elab.Skill
-public meta import LeanSpec.Types
+public meta import LeanSpec.ProcessSkill
 
 namespace LeanSpec.Demo.SkillSyntax
 

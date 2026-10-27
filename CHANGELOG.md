@@ -6,14 +6,152 @@ All notable changes to **lean-spec** are documented here. The format follows
 
 Unless noted otherwise, every release builds clean (`lake build`), passes the suite
 (`lake test`), and all guarantees rest on the Lean kernel and the three standard
-axioms (`propext`, `Classical.choice`, `Quot.sound`) — no `sorry`. From the release
-after 1.0.0 there is no `native_decide` either, and `lake check --paranoid` accepts the
+axioms (`propext`, `Classical.choice`, `Quot.sound`) — no `sorry`. From 1.1.0 there is
+no `native_decide` either, and `lake check --paranoid` accepts the
 development (see `LeanSpec/Kb.lean`'s trust-boundary note).
 
-## [1.1.0] — 2026-10-27
+## [3.0.0] — 2026-10-27
 
-Kernel-checked everywhere, with `lake check --paranoid` in CI. The last release on
-the 1.x requirement surface; 3.0.0 replaces it (see its changelog section).
+lean-spec and lean-spec-core merged into one package: the surface the bench showed
+cuts tokens and drift (plain Lean values, examples as the tests, a `check` whose
+rules are error lines, a manual printed by `help`) and the kernel evidence model of
+2.0 (requirements as `Prop`s, witnesses read off their type, counter-models,
+sign-offs with digests, the statement). Plan and record: `docs/lean-spec-3-plan.md`.
+
+### Added
+- `LeanSpec.Core` (from lean-spec-core, with its history): `Ex`, `IOSig`, `Req.holds`,
+  `IOReq`, big `json%` literals, the JSON runner, structural checks and the `spec` CLI
+  (`help`, `check`, `emit`, `test PROG`, `statement`, `report PROG`). A workspace's
+  `main` is `LeanSpec.Core.cli spec% statement% args`.
+- One requirement model: a black-box program is an `IOSig`, and `Req.holds [examples]`
+  or `IOReq pre post` is a `Prop` over it, so every Logic facility applies. Examples live
+  in a `Req.holds` body or on an `@[example R]` def; `spec%` reflects them for the CLI.
+- `@[evidence R₁ R₂]`: a sorry-free theorem supporting requirements, linked by a name
+  resolved at elaboration. It never closes a row; only `@[satisfies]` does.
+- Levels and traceability: `@[requirement must user]`; `@[refines]` on a theorem
+  `… → R₁ S → R₂ S → U S` reads parent and children off the type, and the statement
+  closes a user row (`refined`) once its children are closed, or reports `child-open`
+  and `unrefined`.
+- `report PROG`: the statement merged with a test run, one JSON object per requirement;
+  a row the kernel left open is `tested` when every example passes. Exit 0 iff no
+  `must` row is open. Row status `refined`; gaps `unrefined`, `child-open`,
+  `via-refinement`; witness rows record `general` (quantifies over an input).
+- The requirement digest covers attached examples, so for a black-box requirement a
+  changed, added or dropped example moves the digest and turns a sign-off stale.
+- `LeanSpec/Logic/Demo/Lru.lean`: the whole chain in one file.
+- `LeanSpec.Finding` and `Finding.toReflection`: a reviewer's finding becomes a
+  `Reflection` with the run as provenance; `bench/Findings.lean` holds every round's.
+- `Workflow/Roles.lean`: `refereeGates`, `roleBuilder`, `roleReviewer`; skillsets
+  `spec-builder` and `spec-reviewer` beside `spec-change`; the four phase skills
+  rewritten for the merged surface.
+- `bench/`: the Markdown-vs-Lean benchmark (harness, four tasks, scored results,
+  typed findings), from lean-spec-core. Round 5 adds a value comparator for the
+  Markdown arm (`jeq`), the `logic` arm, the propose gate (`run.py --gate`, a
+  reviewer session accepting each spec change), `batch.py`, `smoke.py` (the
+  referee on a known workspace per arm, no model, in CI) and 96 scored runs. The
+  decisions it settled: `Req.holds` stays the default surface for black-box
+  programs and the reviewer gate is an option, not the default loop.
+- `Tests/ImportFirewall` also fails the build if `LeanSpec`, `Core` or `Logic` import
+  the process or knowledge layer.
+
+### Changed
+- Three libraries: `LeanSpec` (Core + Logic, plain modules, what an agent imports and
+  the only thing a workspace builds), `LeanSpecProcess` (Validated, codecs, process
+  skills, workflow, traces, reflections, findings) and `LeanSpecKb` (Kb, Determination,
+  Wiki, its store and access). Module names and directories are unchanged.
+  `LeanSpecLogic.lean` is gone; `LeanSpec.lean` is that root.
+- `LeanSpecSigned`, not a default target: the Theme demo (a `@[sign_off]` axiom by
+  design) and the Logic tests (deliberate `sorry` and axioms). `lake check --paranoid`
+  covers exactly what rests on the standard axioms; `lake build LeanSpecSigned` and
+  `lake test` still build and check these.
+- `LeanSpec.Logic.Core` imports `Lean.Elab.Command`, `Lean.Util.CollectAxioms` and
+  `Lean.DocString` rather than all of `Lean`, so the export the checkers replay is
+  the development, not the compiler.
+- CI `verify` also builds `LeanSpecSigned` and checks `bench/Findings.lean` and the
+  big-literal fixture.
+- `lake check --paranoid` accepts the three default libraries with all six checkers
+  (91,898 declarations, nine minutes in the CI image); see
+  `docs/lake-check-paranoid-report.md`, section 3.0.
+
+### Migration
+
+| from | to |
+|---|---|
+| 1.x `requirement "R1" … shall "…"` sugar, given/when/then | `@[requirement must] def R1 : Sig → Prop := …`; the sentence is the docstring |
+| 1.x `Change`/`Delta`, `Snapshot`, `Store`, `Emit`, `Precedent` | the `git diff` of `Spec.lean`, `lake exe spec check`, the digests in `report`; a decision is a `Reflection` in `LeanSpecKb` |
+| core `req "R1" "text" [ex …]` in a `Spec` list | `/-- text -/ @[requirement must] def R1 : IOSig → Prop := Req.holds [ex …]` |
+| core `@[req "R1"] theorem t …` | `@[evidence R1] theorem t …` (supports) or `@[satisfies] theorem t : R1 impl` (closes) |
+| core `check`/`emit`/`test` on `spec` | the same subcommands of `lake exe spec`, plus `statement` and `report PROG`; `main` is `LeanSpec.Core.cli spec% statement% args` |
+| `import LeanSpecLogic` / `LeanSpec.Logic.Core` for the attributes | `import LeanSpec` (Core and Logic); process and Kb modules unchanged, in `LeanSpecProcess` and `LeanSpecKb` |
+
+The merge matrix, component by component, is `docs/lean-spec-3-plan.md`, section 3.
+
+### Removed
+- lean-spec-core's `req`/`Spec`/`@[req "R1"]` (string ids; `check` once accepted an
+  unknown id) in favour of `@[requirement]`, `@[example]` and `@[evidence]`.
+- `spec diff` and `statement --json`, built in step 6 and removed the same day: a
+  saved statement is Snapshot and Store by another name, and the proposal is the
+  `git diff` of `Spec.lean`, read with `check` and the digests in `report`.
+
+
+## [2.0.0] — 2026-10-23
+
+Requirements are now only Lean propositions (`LeanSpec.Logic`). The 1.x requirement
+layer is gone.
+
+### What 1.x guaranteed, plainly
+A 1.x `Requirement` was text: a `shall` string and given/when/then scenarios. Its
+proofs showed that text was well-formed: non-blank strings, a valid id, at least one
+scenario, a non-blank reason on a deferred check, JSON that round-trips. They said
+nothing about whether the product did what the text said. `check executable` was a
+claim that a test existed, not a proof. The "lean-spec-verified" mark covered the
+shape of prose, not behaviour.
+
+### What 2.0 checks instead
+- A requirement is `@[requirement must|should] def R : Sig → Prop`. The claim is the
+  `Prop`; a docstring is a label only.
+- Evidence is a `@[satisfies]` theorem `R impl`, checked by the kernel. The
+  requirement it proves is read off its type, so it cannot be attached to the wrong one.
+- A `@[refutes]` counter-model `¬ R bad` shows the `Prop` is not vacuous.
+- `@[shipped]` separates proofs about the product from proofs about a model of it.
+- What code cannot prove is a named person's `@[sign_off who "digest"]` axiom; a
+  changed requirement changes its digest and the sign-off goes stale.
+- `spec_statement` lists, per requirement, its witnesses, axioms, counter-models and
+  open gaps (`no-witness`, `uses-sorry`, `non-standard-axiom`, `awaiting-sign-off`,
+  `stale-sign-off`, `model-only`, `vacuous`). The mark holds when every `must` row
+  is closed.
+
+### Removed
+- The prose layer: `Requirement`, `Scenario`, `CheckStatus`, the 1.x `Strength`
+  (`LeanSpec.Types`), the `spec` command and `registeredSpecs%`, the `requirement`
+  sugar, `DesignUnit` and the target-language policy, `Change`/`Delta`, the spec
+  snapshot, precedents, archive, the `.lean` emit and the store, their JSON codecs,
+  `verification_statement`, the KB adapters for requirements and archives, the 1.x
+  demos and their tests.
+- `lean-spec` CLI commands `decode-requirement`, `show-snapshot`, `validate-change`,
+  `check-precedents`, `archive`, `export-skills`. It keeps `list-skillsets`,
+  `boot-plan`, `show-skillset`.
+- The `lean-spec-verification` executable; `lean-spec-logic-statement` prints the
+  demo statements.
+- `Wiki`'s `ReflectedChange` and `archiveWithReflections`.
+
+### Changed
+- `ProcessSkill` moved from `LeanSpec.Types` to `LeanSpec.ProcessSkill`; its names
+  are unchanged. Import `LeanSpec.ProcessSkill` (or `LeanSpec`).
+- A Wiki promotion is now a `PromotionProposal` (the requirement it targets and the
+  reflections that motivated it); `Wiki.proposePromotion` keeps its capability and
+  coherence checks. Acceptance is a human sign-off.
+- `defaultStoreDir` and `writeFileAtomic` moved to `LeanSpec.WikiStore`.
+- The `spec-change` skills now teach Props, theorems, counter-models and sign-offs
+  instead of DesignUnits and `shall` labels. Skill ids are unchanged.
+- `lake test` also builds `LeanSpec.Logic.Tests`.
+
+### Kept
+`LeanSpec.Logic.Core`, `ProcessSkill`, `Skillset`, `Workflow.*` (incl. `Catalog`,
+`BootClosure`), `Kb`, `WikiAccess`, `Wiki`, `WikiStore`, `Reflection`, `Trace`,
+`Validated`, `LeanUtil`, `LeanJson`.
+
+## [1.1.0] — 2026-10-17
 
 ### Added
 - `docs/lake-check-paranoid-report.md`: what `lake check --paranoid` found before and

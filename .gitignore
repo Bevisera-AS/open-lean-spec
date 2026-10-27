@@ -3,3 +3,6 @@
 .lean-spec/
 .DS_Store
 .elan/
+.venv/
+__pycache__/
+.claude/

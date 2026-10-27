@@ -1,0 +1,21 @@
+{
+  "id": "mortgage",
+  "stages": [
+    {"name": "base", "text": "Build an annuity mortgage schedule calculator. All money is integer øre; never use floating point for money.\nInput (stdin, one JSON object): {\"principal\": int >= 1, \"annual_rate_bp\": int >= 0 (basis points per year, 1 bp = 0.01%), \"months\": int >= 1}.\nMonthly rate r = annual_rate_bp / 120000 (exact rational). Fixed payment = principal * r / (1 - (1 + r)^-months), computed exactly and rounded half-up to whole øre; when the rate is 0 the payment is principal / months rounded half-up.\nEach month: interest = balance * annual_rate_bp / 120000 rounded half-up to whole øre; principal_paid = payment - interest; balance decreases by principal_paid. In the last month (or as soon as payment - interest >= balance) the month instead pays principal_paid = balance, so the balance ends at exactly 0 and the schedule stops.\nOutput (stdout, one JSON object): {\"payment\": int, \"schedule\": [{\"month\": int starting at 1, \"interest\": int, \"principal\": int, \"balance\": int (after the month)}], \"total_interest\": int (sum of interest)}."},
+    {"name": "cr1", "text": "Change request 1: the input may carry an optional field \"extra\": [{\"month\": int, \"amount\": int >= 1}]. After the regular payment of that month, the extra amount is paid off the balance too and added to that month's \"principal\". An extra payment never takes the balance below 0 (it is capped at the remaining balance). The regular payment amount stays unchanged, so the loan can end early; the schedule stops at the month the balance reaches 0."},
+    {"name": "cr2", "text": "Change request 2: the input may carry an optional field \"interest_only_months\": int k with 0 <= k < months. In the first k months the borrower pays interest only (principal 0, balance unchanged). The fixed payment is computed as an annuity over the remaining months - k, on the full principal, and applies from month k+1. Output \"payment\" is that annuity payment. Extra payments (CR1) still apply in any month, including interest-only months."}
+  ],
+  "reqs": [
+    {"id": "R1", "stage": "base", "text": "exact annuity payment, half-up rounding to øre; zero rate = principal/months half-up"},
+    {"id": "R2", "stage": "base", "text": "monthly interest = balance*bp/120000 half-up"},
+    {"id": "R3", "stage": "base", "text": "final month pays off the exact remaining balance; schedule stops at 0"},
+    {"id": "R4", "stage": "base", "text": "total_interest is the sum of monthly interest"},
+    {"id": "R5", "stage": "cr1", "text": "extra payment after regular payment, capped, added to month principal, early end"},
+    {"id": "R6", "stage": "cr2", "text": "interest-only months, then annuity over months-k on full principal"}
+  ],
+  "mutants": {
+    "m1": "interest truncated instead of rounded half-up",
+    "m2": "extra payment not capped at remaining balance",
+    "m3": "annuity after interest-only months still computed over all months"
+  }
+}

@@ -24,6 +24,13 @@ def isSpecImport (mod : String) : Bool :=
 def forbiddenInShared (mod : String) : Bool :=
   isSpecImport mod
 
+/-- The agent-facing library (`LeanSpec`, `LeanSpec.Core.*`, `LeanSpec.Logic.*`)
+may import only itself: never the process or knowledge layers, so a workspace
+that imports `LeanSpec` builds Core, Logic and `Lean` and nothing more. -/
+def forbiddenInAgentLib (mod : String) : Bool :=
+  isSpecImport mod && mod != "LeanSpec" &&
+    !(mod.startsWith "LeanSpec.Core") && !(mod.startsWith "LeanSpec.Logic")
+
 def importsIn (path : System.FilePath) : IO (Array String) := do
   let raw ← IO.FS.readFile path
   let mut acc : Array String := #[]
@@ -45,13 +52,25 @@ def assertTrue (label : String) (condition : Bool) : IO Unit := do
 
 def check : IO Unit := do
   assertTrue "LeanSpec is a spec import" (isSpecImport "LeanSpec")
-  assertTrue "LeanSpec.Types is a spec import" (isSpecImport "LeanSpec.Types")
+  assertTrue "LeanSpec.ProcessSkill is a spec import" (isSpecImport "LeanSpec.ProcessSkill")
   assertTrue "a longer name is not a spec import" (!isSpecImport "LeanSpecial")
   assertTrue "LeanUtil is not a spec import" (!isSpecImport "LeanUtil")
   assertTrue "import line"
-    (importModule? "public import LeanSpec.Types" == some "LeanSpec.Types")
-  assertTrue "ignore comments" (importModule? "-- import LeanSpec.Types" == none)
+    (importModule? "public import LeanSpec.ProcessSkill" == some "LeanSpec.ProcessSkill")
+  assertTrue "ignore comments" (importModule? "-- import LeanSpec.ProcessSkill" == none)
   assertNoForbidden "LeanUtil" ⟨"LeanUtil.lean"⟩ forbiddenInShared
   assertNoForbidden "LeanJson" ⟨"LeanJson.lean"⟩ forbiddenInShared
+  assertTrue "process import is forbidden in the agent lib"
+    (forbiddenInAgentLib "LeanSpec.ProcessSkill")
+  assertTrue "Core import is allowed in the agent lib" (!forbiddenInAgentLib "LeanSpec.Core.Types")
+  assertNoForbidden "LeanSpec" ⟨"LeanSpec.lean"⟩ forbiddenInAgentLib
+  assertNoForbidden "LeanSpec.Core" ⟨"LeanSpec/Core.lean"⟩ forbiddenInAgentLib
+  for f in ← System.FilePath.readDir ⟨"LeanSpec/Core"⟩ do
+    if f.path.extension == some "lean" then
+      assertNoForbidden "LeanSpec.Core" f.path forbiddenInAgentLib
+  assertNoForbidden "LeanSpec.Logic.Core" ⟨"LeanSpec/Logic/Core.lean"⟩ forbiddenInAgentLib
+  for f in ← System.FilePath.readDir ⟨"LeanSpec/Logic/Demo"⟩ do
+    if f.path.extension == some "lean" then
+      assertNoForbidden "LeanSpec.Logic.Demo" f.path forbiddenInAgentLib
 
 end ImportFirewall

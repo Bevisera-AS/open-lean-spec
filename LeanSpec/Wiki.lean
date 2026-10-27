@@ -4,12 +4,10 @@ public import LeanSpec.Reflection
 public import LeanSpec.WikiAccess
 public import LeanSpec.Validated
 public import LeanSpec.Determination
-public import LeanSpec.Snapshot
 public import LeanSpec.Kb
 public meta import LeanSpec.Reflection
 public meta import LeanSpec.WikiAccess
 public meta import LeanSpec.Determination
-public meta import LeanSpec.Snapshot
 public meta import LeanSpec.Kb
 public meta import LeanUtil
 
@@ -28,7 +26,7 @@ as a primary entry, the canonical node `supersedes` it (a stored `Morphism`), an
 history. Provenance never shrinks — `derivedFrom` run ids are unioned into the
 canonical node (`Kb.dedupUnion`).
 
-The store carries a `uniqueIds` invariant (like `SpecSnapshot`): reflection ids are
+The store carries a `uniqueIds` invariant : reflection ids are
 unique by construction, and every write path (`record`) is proved to preserve it.
 
 Everything stays *lower-assurance* than the spec store: nothing here is claimed true
@@ -260,61 +258,26 @@ public theorem Wiki.effectiveByKind_sound {w : Wiki}
   | false => rfl
   | true => rw [hs] at h2; simp at h2
 
-/-! ## The valve: a spec change may cite Wiki reflections
+/-! ## The valve: a requirement may cite Wiki reflections
 
-The one place the agent axis touches the human-authority axis. A spec `Change` may
-declare the reflection(s) that motivated it. The archive gate refuses a change that
-cites a reflection the Wiki does not hold — no fabricated motivation crosses the
-valve. Because originals are kept, a citation to a now-consolidated reflection still
-resolves. A pure human-authored change cites nothing and passes freely. -/
+The one place the agent axis touches the human-authority axis. A proposal to add
+or change a `@[requirement]` in `LeanSpec.Logic` may declare the reflection(s) that
+motivated it. A proposal citing a reflection the Wiki does not hold is refused, so
+no fabricated motivation crosses the valve. Because originals are kept, a citation
+to a now-consolidated reflection still resolves. A human-authored proposal cites
+nothing and passes freely. Acceptance itself is the human `@[sign_off]`. -/
 
-/-- A change together with the ids of the Wiki reflections that motivated it. -/
-public structure ReflectedChange where
-  change : Change
+/-- A proposed requirement (the Lean declaration it adds or changes) together with
+the ids of the Wiki reflections that motivated it. -/
+public structure PromotionProposal where
+  requirement : NonBlank
   motivations : Array NonBlank := #[]
-  deriving Repr
-
-/-- Every cited motivation is a reflection the Wiki actually holds. Empty is
-vacuously coherent (a human-authored change motivated by nothing). -/
-public def ReflectedChange.coherentInWiki (w : Wiki) (rc : ReflectedChange) : Bool :=
-  rc.motivations.all (fun m => w.hasId m.value)
-
-/-- Refusal reasons. `uncited` is the new gate; `archive` forwards the ordinary
-archive refusal (e.g. no human accept). -/
-public inductive ReflectedArchiveError where
-  | uncited
-  | archive (e : ArchiveError)
   deriving Repr, BEq
 
-/-- Archive a change together with its Wiki motivations. A citation the Wiki does not
-hold is refused before the human gate is consulted; otherwise this delegates to the
-ordinary `SpecSnapshot.archive`. Coherence is thus a precondition of success. -/
-public def SpecSnapshot.archiveWithReflections
-    (s : SpecSnapshot) (rc : ReflectedChange) (w : Wiki) (gate : ArchiveDecision) :
-    Except ReflectedArchiveError SpecSnapshot :=
-  if rc.coherentInWiki w then
-    match s.archive rc.change gate with
-    | .ok s' => .ok s'
-    | .error e => .error (.archive e)
-  else
-    .error .uncited
-
-/-- A change citing a reflection the Wiki lacks is refused, whatever the gate says. -/
-public theorem archiveWithReflections_uncited
-    {s : SpecSnapshot} {rc : ReflectedChange} {w : Wiki} {gate : ArchiveDecision}
-    (h : rc.coherentInWiki w = false) :
-    s.archiveWithReflections rc w gate = .error .uncited := by
-  simp [SpecSnapshot.archiveWithReflections, h]
-
-/-- A successful reflected-archive proves every cited motivation was in the Wiki. -/
-public theorem archiveWithReflections_ok_coherent
-    {s : SpecSnapshot} {rc : ReflectedChange} {w : Wiki} {gate : ArchiveDecision}
-    {s' : SpecSnapshot} (h : s.archiveWithReflections rc w gate = .ok s') :
-    rc.coherentInWiki w = true := by
-  unfold SpecSnapshot.archiveWithReflections at h
-  split at h
-  · next hc => exact hc
-  · simp at h
+/-- Every cited motivation is a reflection the Wiki actually holds. Empty is
+vacuously coherent (a human-authored proposal motivated by nothing). -/
+public def PromotionProposal.coherentInWiki (w : Wiki) (rc : PromotionProposal) : Bool :=
+  rc.motivations.all (fun m => w.hasId m.value)
 
 /-! ## Capability-gated entry points
 
@@ -322,7 +285,7 @@ Maintenance (`Wiki.record`) and promotion-proposal are *ambient* on the bare
 functions; downstream callers go through these capability-gated wrappers instead.
 `WikiAccess` says who may do what; the mapping from a principal/authority to a
 `WikiAccess` level is downstream company-pack policy. Acceptance of a promotion
-remains a human gate (`archiveWithReflections`) — `promoteCandidate` is proposal
+remains a human gate (a `@[sign_off]` in `LeanSpec.Logic`) — `promoteCandidate` is proposal
 authority only, so the valve stays singular. -/
 
 /-- Refusal reason for a capability-gated agent-knowledge operation. -/
@@ -352,12 +315,12 @@ public theorem Wiki.recordWith_ok
   · next hc => exact ⟨hc, by injection h with h; exact h.symm ▸ rfl⟩
   · contradiction
 
-/-- **Capability-gated promotion proposal.** Producing the `ReflectedChange` that a
-human gate will adjudicate requires at least `.promoteCandidate`. The proposal must
+/-- **Capability-gated promotion proposal.** Producing the `PromotionProposal` that a
+human sign-off will adjudicate requires at least `.promoteCandidate`. The proposal must
 also be Wiki-coherent (every motivation is a reflection the Wiki holds), so a
 fabricated motivation cannot even be proposed. -/
-public def Wiki.proposePromotion (cap : WikiAccess) (w : Wiki) (rc : ReflectedChange) :
-    Except AccessError ReflectedChange :=
+public def Wiki.proposePromotion (cap : WikiAccess) (w : Wiki) (rc : PromotionProposal) :
+    Except AccessError PromotionProposal :=
   if cap.canPropose then
     if rc.coherentInWiki w then .ok rc
     else .error (.insufficientCapability cap .promoteCandidate)
@@ -365,14 +328,14 @@ public def Wiki.proposePromotion (cap : WikiAccess) (w : Wiki) (rc : ReflectedCh
 
 /-- Proposing below `.promoteCandidate` refuses. -/
 public theorem Wiki.proposePromotion_refuses
-    {cap : WikiAccess} {w : Wiki} {rc : ReflectedChange} (h : cap.canPropose = false) :
+    {cap : WikiAccess} {w : Wiki} {rc : PromotionProposal} (h : cap.canPropose = false) :
     w.proposePromotion cap rc = .error (.insufficientCapability cap .promoteCandidate) := by
   simp [Wiki.proposePromotion, h]
 
 /-- A successful proposal proves both capability and Wiki-coherence — so the
 downstream human gate never sees a proposal with fabricated provenance. -/
 public theorem Wiki.proposePromotion_ok
-    {cap : WikiAccess} {w : Wiki} {rc rc' : ReflectedChange}
+    {cap : WikiAccess} {w : Wiki} {rc rc' : PromotionProposal}
     (h : w.proposePromotion cap rc = .ok rc') :
     cap.canPropose = true ∧ rc.coherentInWiki w = true ∧ rc' = rc := by
   unfold Wiki.proposePromotion at h
@@ -468,36 +431,14 @@ private def r2 : Reflection :=  -- different learning
 
 private def wiki2 : Wiki := Wiki.record (Wiki.record {} r1) r2
 
-private def exScenarioW : Scenario :=
-  { name := ⟨"n", by decide +kernel⟩
-    whenText := ⟨"w", by decide +kernel⟩
-    thenText := ⟨"t", by decide +kernel⟩
-    check := .executable }
-
-private def exReqW : Requirement :=
-  { id := ⟨"cap.x", by decide +kernel⟩
-    shall := ⟨"do x", by decide +kernel⟩
-    scenarios := ⟨#[exScenarioW], by decide +kernel⟩ }
-
-private def exChgW : Change :=
-  { id := ⟨"chg-x", by decide +kernel⟩
-    why := ⟨"because", by decide +kernel⟩
-    deltas := ⟨#[.added exReqW], by decide +kernel⟩ }
+private def exReqW : NonBlank := nb "cap.x"
 
 -- Cites a kept original the Wiki holds → coherent.
-#guard ({ change := exChgW, motivations := #[nb "wiki.enum-canary"] } : ReflectedChange).coherentInWiki wiki2
+#guard ({ requirement := exReqW, motivations := #[nb "wiki.enum-canary"] } : PromotionProposal).coherentInWiki wiki2
 -- Cites a reflection the Wiki lacks → refused.
-#guard !({ change := exChgW, motivations := #[nb "wiki.ghost"] } : ReflectedChange).coherentInWiki wiki2
--- Pure human-authored change (no motivation) → allowed; the valve never forces the coupling.
-#guard ({ change := exChgW } : ReflectedChange).coherentInWiki wiki2
-
--- The archive gate refuses an uncited change before the human gate is consulted.
-private def emptySnap : SpecSnapshot := ⟨#[], by decide +kernel, #[], by decide +kernel, by decide +kernel⟩
-private def isUncited : Except ReflectedArchiveError SpecSnapshot → Bool
-  | .error .uncited => true
-  | _ => false
-#guard isUncited (emptySnap.archiveWithReflections
-  { change := exChgW, motivations := #[nb "wiki.ghost"] } wiki2 .accepted)
+#guard !({ requirement := exReqW, motivations := #[nb "wiki.ghost"] } : PromotionProposal).coherentInWiki wiki2
+-- Pure human-authored proposal (no motivation) → allowed; the valve never forces the coupling.
+#guard ({ requirement := exReqW } : PromotionProposal).coherentInWiki wiki2
 
 /-! ### Capability-gated entry points -/
 
@@ -509,19 +450,19 @@ private def isRecordOk : Except AccessError Wiki → Bool
 #guard isRecordOk (Wiki.recordWith .maintain {} r1)
 #guard isRecordOk (Wiki.recordWith .promoteCandidate {} r1)
 
-private def isProposeOk : Except AccessError ReflectedChange → Bool
+private def isProposeOk : Except AccessError PromotionProposal → Bool
   | .ok _ => true | .error _ => false
 
 -- Promotion proposal needs .promoteCandidate AND a Wiki-coherent motivation.
 -- Refused below .promoteCandidate even with a coherent motivation.
 #guard !isProposeOk (wiki2.proposePromotion .maintain
-  { change := exChgW, motivations := #[nb "wiki.enum-canary"] })
+  { requirement := exReqW, motivations := #[nb "wiki.enum-canary"] })
 -- Allowed at .promoteCandidate with a motivation the Wiki holds (the kept original).
 #guard isProposeOk (wiki2.proposePromotion .promoteCandidate
-  { change := exChgW, motivations := #[nb "wiki.enum-canary"] })
+  { requirement := exReqW, motivations := #[nb "wiki.enum-canary"] })
 -- Refused at .promoteCandidate when the motivation is fabricated (not in the Wiki):
 -- no proposal with fabricated provenance ever reaches the human gate.
 #guard !isProposeOk (wiki2.proposePromotion .promoteCandidate
-  { change := exChgW, motivations := #[nb "wiki.ghost"] })
+  { requirement := exReqW, motivations := #[nb "wiki.ghost"] })
 
 end LeanSpec

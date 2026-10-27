@@ -1,8 +1,8 @@
 module
 
-public import LeanSpec.Types
+public import LeanSpec.ProcessSkill
 public import LeanSpec.Codec.Applicative
-public meta import LeanSpec.Types
+public meta import LeanSpec.ProcessSkill
 public meta import LeanSpec.Codec.Applicative
 
 namespace LeanSpec

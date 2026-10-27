@@ -1,0 +1,49 @@
+{
+  "id": "csvclean",
+  "stages": [
+    {
+      "name": "base",
+      "text": "Build a CSV cleaner.\nInput (stdin, one JSON object): {\"csv\": string}. Records are separated by \\n or \\r\\n. Fields are separated by commas. A field that starts with a double quote is quoted: it runs to the matching closing quote, may contain commas and line breaks, and \"\" inside it stands for one \". Every opening quote has a matching closing quote, and a closing quote is always followed by a comma, a line break or the end of the input. Unquoted fields have leading and trailing spaces (U+0020 only) removed; quoted fields are kept exactly. A lone \\r that is not followed by \\n is ordinary data. A line holding only spaces is a record, not an empty line. The first record is the header. Records that are empty lines are skipped. A data record whose field count differs from the header's is rejected.\nOutput (stdout, one JSON object): {\"rows\": [{header: value string, ...}, ...] in input order, \"errors\": [int, ...]} where errors lists, in order, the 1-based physical line number on which each rejected record starts."
+    },
+    {
+      "name": "cr1",
+      "text": "Change request 1: the input may carry an optional field \"types\": {column: \"int\" | \"bool\"}. In that column, \"int\" values must match an optional '-' followed by one or more digits and become JSON integers; \"bool\" values must be exactly true or false (lower case) and become JSON booleans. A row with any value that fails its conversion is rejected and its start line is added to errors. Every column named in \"types\" is a header column."
+    },
+    {
+      "name": "cr2",
+      "text": "Change request 2: the input may carry an optional field \"dedupe_on\": [column, ...]. Among accepted rows, a row whose values in those columns (after type conversion) equal those of an earlier accepted row is dropped. The output gains \"duplicates\": int, the number of dropped rows (0 when dedupe_on is absent or empty; an empty list dedupes nothing). Every column named in \"dedupe_on\" is a header column."
+    }
+  ],
+  "reqs": [
+    {
+      "id": "R1",
+      "stage": "base",
+      "text": "quoted fields: commas, line breaks, doubled quotes; kept exactly"
+    },
+    {
+      "id": "R2",
+      "stage": "base",
+      "text": "unquoted fields trimmed; empty lines skipped; \\r\\n accepted"
+    },
+    {
+      "id": "R3",
+      "stage": "base",
+      "text": "wrong field count rejected; errors = physical start line numbers"
+    },
+    {
+      "id": "R4",
+      "stage": "cr1",
+      "text": "int/bool typed columns converted; failed conversion rejects the row"
+    },
+    {
+      "id": "R5",
+      "stage": "cr2",
+      "text": "dedupe keeps first accepted row per key; duplicates count, 0 when absent"
+    }
+  ],
+  "mutants": {
+    "m1": "quoted fields are trimmed too",
+    "m2": "errors report record index instead of physical line",
+    "m3": "dedupe keeps the last row instead of the first"
+  }
+}

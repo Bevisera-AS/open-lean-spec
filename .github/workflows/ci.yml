@@ -4,7 +4,10 @@
 # workflow runs the same two checks on the read-only GitHub mirror, so the result is
 # visible where the mirror is read:
 #
-#   verify        `lake build` (library plus both executables) and `lake test`.
+#   verify        `lake build` (the three libraries), the signed demo library and the
+#                 two executables, `lake test`, and the bench without a model: its
+#                 typed findings, its big-literal fixture, and the referee on a
+#                 known workspace per arm (bench/smoke.py).
 #   kernel-check  `lake check --paranoid`, sandboxed. Builds and exports the default
 #                 target inside a `bwrap` sandbox and replays it through every
 #                 checker bundled with Lean, including the verified kernels
@@ -51,8 +54,11 @@ jobs:
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
       - run: lean --version && lake --version
       - run: lake build
-      - run: lake build lean-spec lean-spec-verification
+      - run: lake build LeanSpecSigned lean-spec lean-spec-logic-statement
       - run: lake test
+      - run: lake env lean bench/Findings.lean
+      - run: lake env lean bench/fixtures/BigSpec.lean
+      - run: python3 bench/smoke.py
 
   kernel-check:
     runs-on: ubuntu-24.04

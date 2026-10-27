@@ -1,0 +1,21 @@
+{
+  "id": "lru",
+  "stages": [
+    {"name": "base", "text": "Build an LRU cache simulator.\nInput (stdin, one JSON object): {\"capacity\": int >= 0, \"ops\": [op, ...]} where op is [\"put\", key: string, value: int] or [\"get\", key: string].\nget returns the stored value, or null when absent, and marks the key most recently used. put stores the value and marks the key most recently used; putting an existing key updates its value and never evicts. Putting a new key into a full cache first evicts the least recently used key. With capacity 0 nothing is ever stored.\nOutput (stdout, one JSON object): {\"results\": [...]} with one entry per op: get gives its value or null, put gives null."},
+    {"name": "cr1", "text": "Change request 1: put now returns the key it evicted (a string), or null when nothing was evicted. With capacity 0, a put of a new key returns that same key (it is evicted immediately)."},
+    {"name": "cr2", "text": "Change request 2: add a logical clock that starts at 0. New op [\"tick\", n: int >= 1] advances the clock by n and returns null. put may carry a 4th element ttl: int >= 1, so [\"put\", key, value, ttl]; the entry expires when clock >= (clock at put) + ttl. A put without ttl never expires; a put on an existing key replaces its ttl (or removes it when no ttl is given). An expired entry behaves as absent: get returns null. Before putting a new key into a full cache, all expired entries are removed first and are NOT reported as evicted; only if the cache is still full is the least recently used live key evicted and reported."}
+  ],
+  "reqs": [
+    {"id": "R1", "stage": "base", "text": "get returns value or null and refreshes recency"},
+    {"id": "R2", "stage": "base", "text": "put on full cache evicts least recently used; update of existing key never evicts"},
+    {"id": "R3", "stage": "base", "text": "capacity 0 stores nothing"},
+    {"id": "R4", "stage": "cr1", "text": "put returns evicted key or null; capacity 0 returns own key"},
+    {"id": "R5", "stage": "cr2", "text": "tick advances clock; entry expires at clock >= put time + ttl; put without ttl clears ttl"},
+    {"id": "R6", "stage": "cr2", "text": "expired entries purged silently before LRU eviction"}
+  ],
+  "mutants": {
+    "m1": "get does not refresh recency",
+    "m2": "expiry uses > instead of >=",
+    "m3": "expired entries reported as evicted"
+  }
+}

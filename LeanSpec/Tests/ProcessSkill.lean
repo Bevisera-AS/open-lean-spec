@@ -1,4 +1,4 @@
-import LeanSpec.Types
+import LeanSpec.ProcessSkill
 
 namespace LeanSpec.Tests.ProcessSkill
 

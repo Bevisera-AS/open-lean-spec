@@ -1,7 +1,7 @@
 module
 
-public import LeanSpec.Types
-public meta import LeanSpec.Types
+public import LeanSpec.ProcessSkill
+public meta import LeanSpec.ProcessSkill
 
 namespace LeanSpec
 
@@ -114,7 +114,7 @@ public theorem AgentTrace.wellFormed_eq_true (t : AgentTrace) : t.wellFormed = t
 /-- Where a durable learning should be promoted. -/
 public inductive PromotionTarget where
   | skill       -- update or create a ProcessSkill
-  | requirement -- feed back into a Requirement scenario
+  | requirement -- feed back into a `@[requirement]` Prop (LeanSpec.Logic)
   | steering    -- add to a steering/conventions file
   | noAction    -- nothing durable was learned
   deriving Repr, BEq, DecidableEq

@@ -1,16 +1,14 @@
 module
 
-public import LeanSpec.Store
 public import LeanSpec.Codec.Reflection
 public meta import LeanJson
 
 /-!
 # IO persistence for the Wiki store
 
-The agent-experience `Wiki` on disk. Unlike `SpecSnapshot` (which has a `.lean`
-source emit — it is authored, human knowledge), the Wiki is JSON only: reflections
-are *provisional* agent knowledge, a transport record, not source. Like the spec
-store, this library never commits the file.
+The agent-experience `Wiki` on disk. Requirements are Lean source
+(`LeanSpec.Logic`); the Wiki is JSON only: reflections are *provisional* agent
+knowledge, a transport record, not source. This library never commits the file.
 
 `recordReflectionFile` is the IO analogue of the maintainer fold: load (or start
 empty), consolidate via `Wiki.record`, write back atomically. Fail-closed on read:
@@ -24,6 +22,17 @@ open Lean
 open LeanJson
 
 public section
+
+/-- Local working directory. Not a git object; this library never commits it. -/
+public def defaultStoreDir : System.FilePath := ⟨".lean-spec"⟩
+
+public def writeFileAtomic (path : System.FilePath) (contents : String) : IO Unit := do
+  match path.parent with
+  | none => pure ()
+  | some dir => IO.FS.createDirAll dir
+  let tmp : System.FilePath := ⟨path.toString ++ ".tmp"⟩
+  IO.FS.writeFile tmp contents
+  IO.FS.rename tmp path
 
 /-- Working Wiki store path. Agent-axis, JSON only, not a git object. -/
 public def defaultWikiPath : System.FilePath := defaultStoreDir / "wiki.json"

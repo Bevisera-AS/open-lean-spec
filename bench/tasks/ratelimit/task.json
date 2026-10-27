@@ -1,0 +1,21 @@
+{
+  "id": "ratelimit",
+  "stages": [
+    {"name": "base", "text": "Build a per-user sliding-window rate limiter.\nInput (stdin, one JSON object): {\"limit\": int >= 0, \"window\": int >= 1, \"events\": [{\"t\": int, \"user\": string}, ...]}. Events are sorted by t (non-decreasing); equal t values are processed in list order.\nA request by user u at time t is allowed when fewer than `limit` earlier ALLOWED requests by u have a time in the half-open interval (t - window, t]. Denied requests never count.\nOutput (stdout, one JSON object): {\"allowed\": [bool, ...]} with one entry per event, in input order."},
+    {"name": "cr1", "text": "Change request 1: the input may carry an optional field \"overrides\": {user: int >= 0}. A user listed there uses that limit instead of the global `limit`. Users not listed keep the global limit."},
+    {"name": "cr2", "text": "Change request 2: the output must also contain \"denied\": {user: int} giving, for each user with at least one denied request, how many of their requests were denied. Users with no denials do not appear."}
+  ],
+  "reqs": [
+    {"id": "R1", "stage": "base", "text": "allowed iff fewer than limit allowed requests by the same user in (t-window, t]"},
+    {"id": "R2", "stage": "base", "text": "denied requests do not count toward the window"},
+    {"id": "R3", "stage": "base", "text": "users are limited independently"},
+    {"id": "R4", "stage": "base", "text": "limit 0 denies everything; empty events gives empty list"},
+    {"id": "R5", "stage": "cr1", "text": "per-user override replaces the global limit for that user only"},
+    {"id": "R6", "stage": "cr2", "text": "denied map counts denials per user; users without denials absent"}
+  ],
+  "mutants": {
+    "m1": "window boundary inclusive: [t-window, t]",
+    "m2": "denied requests count toward the window",
+    "m3": "denied map includes users with zero denials"
+  }
+}

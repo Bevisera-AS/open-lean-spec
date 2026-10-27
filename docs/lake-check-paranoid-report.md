@@ -10,6 +10,51 @@ Background: [Lean now ships with verified kernels](https://leodemoura.github.io/
 This report covers the runs on lean-spec on 2026-10-16: what the checkers found, why,
 and what we changed.
 
+## 3.0 (branch `merge/core`), 2026-10-26
+
+Two sandboxed runs of `lake check --paranoid` in the CI image (`ci/Dockerfile`,
+Docker `--privileged`, Docker VM with 12 CPUs and 23 GiB) on the merged package:
+`LeanSpec` (Core + Logic), `LeanSpecProcess` and `LeanSpecKb`, the default targets.
+`LeanSpecSigned` (the Theme demo's `@[sign_off]` axiom, the Logic tests' deliberate
+`sorry` and axioms) is not a default target and is not exported; `lake build
+LeanSpecSigned` and `lake test` still build and check it.
+
+| | run 1: `import Lean` in `Logic/Core.lean` | run 2: narrowed import |
+|---|---|---|
+| declarations (lean4lean) | 166,446 | 91,898 |
+| declarations (con-leche, con-ron) | 166,449 | 91,901 |
+| Lean default kernel | accepts | accepts |
+| Lean paranoid kernel | accepts | accepts |
+| lean4lean | accepts | accepts |
+| nanoda | **killed, exit 137** (container OOM at 23 GiB) | accepts |
+| con-leche | accepts | accepts |
+| con-ron | accepts | accepts |
+| axioms in use | not reached | `propext`, `Quot.sound`, `Classical.choice` |
+| wall time | 29 min 37 s | 9 min 7 s |
+| `lake check` exit | 1 | 0 |
+
+**Finding 4: `import Lean` is the whole compiler.** `LeanSpec/Logic/Core.lean` began
+with `import Lean`, so the export the checkers replay held the entire Lean package
+beside the 47 modules of the development: 166,446 declarations against 93,001 in
+1.1. The two Lean kernels and lean4lean took it; con-leche and con-ron took it at
+`--verified`; nanoda, which loads the whole export into memory, exceeded the Docker
+VM's 23 GiB and was killed. Nothing was rejected on its merits. The import is now
+`Lean.Elab.Command`, `Lean.Util.CollectAxioms` and `Lean.DocString`, which is what
+the attributes, the reflection terms and the docstring labels need; the export is
+back to the development's size and every checker accepts in nine minutes. Rule for
+the agent library: import what the elaborator needs, never `Lean`.
+
+**Axiom policy with sign-offs.** A `@[sign_off]` is an axiom by design: a person's
+judgement, named in the statement, with the digest it signed. It is therefore a
+non-standard axiom to `lake check`, as are the Logic tests' `sorry` and custom
+axioms, which exist to exercise the gap rules. Run 2 reports only the three standard
+axioms because those declarations live in `LeanSpecSigned`, outside the default
+targets. The library a workspace builds carries none of them.
+
+nanoda prints `Skipped exported but unpermitted axioms ["sorryAx"]` in run 2: the
+prelude's `sorryAx` declaration is in the export and nanoda skips it; nothing in the
+development depends on it, as the final axiom line shows.
+
 ## Result
 
 | Checker | Before (1.0.0 + sugar fix) | After (`refactor/kernel-decide`) |

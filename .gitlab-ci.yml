@@ -1,14 +1,17 @@
 # CI for lean-spec.
 #
-#   verify          `lake build` (library plus both executables) and `lake test`
-#                   on merge requests, on the default branch, on tags, and on
+#   verify          `lake build` (the three libraries), the signed/sorry'd demo and
+#                   test library, both executables, `lake test`, and the bench's
+#                   findings and fixture, on merge requests, on the default branch, on tags, and on
 #                   any branch via "Run pipeline" in the GitLab UI. This
 #                   turns the changelog's standing claim -- builds clean, passes
 #                   the suite -- into a check rather than an assertion, on Linux,
 #                   a second platform from the macOS development machine.
 #
 #   kernel-check    `lake check --paranoid`, sandboxed. Builds and exports the
-#                   default target (the library, demos and test modules) inside a
+#                   default targets (LeanSpec, LeanSpecProcess, LeanSpecKb with their
+#                   demos and test modules; not LeanSpecSigned, which carries a
+#                   sign-off axiom and deliberate sorries) inside a
 #                   `bwrap` sandbox and replays the export through every checker
 #                   bundled with Lean: its kernel, the hardened-allocator kernel,
 #                   lean4lean, nanoda, and the verified kernels con-leche and
@@ -87,8 +90,13 @@ verify:
   timeout: 45m
   script:
     - lake build
-    - lake build lean-spec lean-spec-verification
+    - lake build LeanSpecSigned lean-spec lean-spec-logic-statement
     - lake test
+    # The bench without a model: its typed findings, its big-literal fixture, and
+    # the referee on a known workspace per arm (check, test, report, ./next, jeq).
+    - lake env lean bench/Findings.lean
+    - lake env lean bench/fixtures/BigSpec.lean
+    - python3 bench/smoke.py
 
 kernel-check:
   extends: .lean-env

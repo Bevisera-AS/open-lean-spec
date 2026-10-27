@@ -1,8 +1,8 @@
 module
 
-public import LeanSpec.Types
+public import LeanSpec.ProcessSkill
 public import LeanSpec.Elab.Skill
-public meta import LeanSpec.Types
+public meta import LeanSpec.ProcessSkill
 public meta import LeanSpec.Elab.Skill
 
 namespace LeanSpec.Workflow
@@ -21,8 +21,8 @@ skill roleSpecifier := {
   purpose := ⟨"Default human interface for a lean-spec install.", by decide +kernel⟩
   rules := ⟨#[
     ⟨"Answer routing questions from loaded boot skills.", by decide +kernel⟩,
-    ⟨"Keep Lean-owned DesignUnits and Requirement labels as authority before product work.", by decide +kernel⟩,
-    ⟨"Founders read `Requirement.shall` and `show-snapshot`; agents author `DesignUnit` fields.", by decide +kernel⟩,
+    ⟨"Keep Lean `@[requirement]` Props as authority before product work.", by decide +kernel⟩,
+    ⟨"People read `lake exe spec report` (open, tested, proved, model, refined, signed) and sign off; agents author requirements, examples and proofs.", by decide +kernel⟩,
     ⟨"Commission bounded implementation tasks only after boot and gates are clear.", by decide +kernel⟩,
     ⟨"Triage discoveries into skill updates or a discovery log.", by decide +kernel⟩
   ], by decide +kernel⟩
