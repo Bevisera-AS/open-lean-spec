@@ -10,7 +10,10 @@ axioms (`propext`, `Classical.choice`, `Quot.sound`) — no `sorry`. From the re
 after 1.0.0 there is no `native_decide` either, and `lake check --paranoid` accepts the
 development (see `LeanSpec/Kb.lean`'s trust-boundary note).
 
-## [Unreleased]
+## [1.1.0] — 2026-10-27
+
+Kernel-checked everywhere, with `lake check --paranoid` in CI. The last release on
+the 1.x requirement surface; 3.0.0 replaces it (see its changelog section).
 
 ### Added
 - `docs/lake-check-paranoid-report.md`: what `lake check --paranoid` found before and
