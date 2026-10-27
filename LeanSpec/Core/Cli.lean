@@ -43,6 +43,16 @@ requirements it supports, by name:
   @[evidence add unknownOp] takes several. Theorems with ∀/binders over inputs count as general;
   closed statements and ∃ count as examples. No sorry. An unknown name is a compile error.
   `check` prints evidence.<req>.general/examples.
+Closing a row by proof (Lean target), when the product is itself a Lean value of the signature:
+  structure Sig where f : Nat → Nat
+  /-- f fixes zero -/
+  @[requirement must] def fixesZero : Sig → Prop := fun S => S.f 0 = 0
+  @[shipped] def impl : Sig := ⟨id⟩                       -- the product itself, not a model of it
+  @[satisfies] theorem impl_ok : fixesZero impl := rfl     -- closes the row; the requirement is read off the type
+  @[refutes] theorem bump_fails : ¬ fixesZero ⟨(· + 1)⟩ := by simp [fixesZero]  -- a counter-model
+  A sorry is refused on @[refutes] and @[evidence] and leaves a @[satisfies] row open. A row proved only
+  of a model (no @[shipped]) closes as `model`; a requirement with no @[refutes] carries the gap `vacuous`.
+  `statement` prints both; the mark `lean-spec-verified` requires neither, so read the gaps, not the mark.
 Levels and traceability: @[requirement must user] marks a stakeholder-level requirement (default
   level is system). A theorem `(h1 : R1 S) (h2 : R2 S) : U S` tagged @[refines] records that R1 and
   R2 refine U; U counts as closed once R1 and R2 are. A user requirement needs that or its own proof.
@@ -53,7 +63,8 @@ Commands (lake exe spec ...):
                `TESTS passed=N failed=M`; exit 1 on any failure or problem
   statement    what the kernel checked, per requirement: witnesses, axioms, counter-models, gaps
   report PROG  one JSON line per requirement: the statement merged with a test run; a row the kernel
-               left open is `tested` when all its examples pass. Exit 0 iff no `must` row is open.
+               left open is `tested` when all its examples pass, and a row with a failing example is
+               open whatever the kernel proved. Exit 0 iff no `must` row is open.
 Rules (`check` lists each violation; fix all): every requirement has a docstring and >= 1 example
   (ideally a normal and an edge/error case) or a @[satisfies] theorem; example names are non-blank
   and unique across the WHOLE spec; two examples with the same input must have the same output; an
@@ -73,9 +84,28 @@ def runExample (prog : String) (e : Ex) : IO Bool := do
   | .ok o => return match Json.parse o with | .ok j => jeq j e.output | .error _ => false
   | .error _ => return false
 
+/-- A report row's status from the kernel's verdict and the test run. A row with a
+failing example is `open` whatever the kernel proved, since a theorem about a model
+says nothing about the program under test; otherwise a closed kernel status stands,
+and a row the kernel left open is `tested` when it has examples and every one passed. -/
+def reportStatus (kernel : String) (hasExamples tested : Bool) : String :=
+  if hasExamples && !tested then "open"
+  else if kernel != "open" && kernel != "absent" then kernel
+  else if tested then "tested" else "open"
+
+#guard reportStatus "model" true false == "open"
+#guard reportStatus "proved" true false == "open"
+#guard reportStatus "signed" true false == "open"
+#guard reportStatus "model" true true == "model"
+#guard reportStatus "model" false false == "model"
+#guard reportStatus "open" true true == "tested"
+#guard reportStatus "open" true false == "open"
+#guard reportStatus "open" false false == "open"
+#guard reportStatus "absent" true true == "tested"
+
 /-- `report PROG`: the statement merged with a test run, one JSON object per
-requirement. A row the kernel left open is `tested` when it has examples and
-every one passed; the kernel's own verdict is kept beside it as `kernel`. -/
+requirement, status by `reportStatus`; the kernel's own verdict is kept beside it
+as `kernel`. -/
 def report (rs : List ReqView) (st : Statement) (prog : String) : IO UInt32 := do
   let ps := problems rs
   let mut allOk := ps.isEmpty
@@ -87,9 +117,7 @@ def report (rs : List ReqView) (st : Statement) (prog : String) : IO UInt32 := d
     let row := st.row? name
     let kernel := st.statusOf name
     let tested := !r.examples.isEmpty && results.all (·.2)
-    let status :=
-      if kernel != "open" && kernel != "absent" then kernel
-      else if tested then "tested" else "open"
+    let status := reportStatus kernel (!r.examples.isEmpty) tested
     if r.strength == "must" && status == "open" then allOk := false
     IO.println (Json.mkObj [
       ("requirement", r.name), ("level", r.level), ("strength", r.strength), ("label", r.label),

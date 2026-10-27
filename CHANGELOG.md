@@ -73,6 +73,18 @@ sign-offs with digests, the statement). Plan and record: `docs/lean-spec-3-plan.
   (91,898 declarations, nine minutes in the CI image); see
   `docs/lake-check-paranoid-report.md`, section 3.0.
 
+### Fixed
+- `@[refutes]` refuses a theorem that depends on `sorryAx`, as `@[evidence]` and
+  `@[refines]` do. Counter-models reach `gaps` as a count, so a counter-model Lean had
+  recovered with `sorry` used to clear `vacuous`.
+- `report`: a row with a failing example is `open` whatever the kernel's verdict. A
+  `@[satisfies]` theorem about a model (status `model`) used to override the test run
+  of the program, and the exit code with it. The rule is `reportStatus`, guarded.
+- `help` names the proof surface: `@[satisfies]` with its `R impl` shape, `@[shipped]`,
+  `@[refutes]`, what a missing one costs (`model`, `vacuous`), and that the mark
+  requires neither. `bench/smoke.py` asserts `mark none` on its example-only spec and
+  the open row on a broken program.
+
 ### Migration
 
 | from | to |

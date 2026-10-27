@@ -255,6 +255,10 @@ private def registerEvidence (decl : Name) (negated : Bool) : AttrM Unit := do
       else "@[satisfies] needs a statement `R impl`")
   unless isRegistered (← getEnv) r do
     throwError "{decl} is about {r}, which is not a @[requirement]"
+  -- A counter-model reaches `gaps` as a count, not inspected, so it is checked here.
+  -- A witness with `sorry` is kept and reported as `usesSorry`, which blocks its row.
+  if negated && (← collectAxioms decl).contains ``sorryAx then
+    throwError "@[refutes]: {decl} depends on sorryAx; a sorry'd counter-model rules nothing out"
   modifyEnv (specExt.addEntry · (if negated then .counter decl r else .witness decl r))
 
 /-- The parent and children of a refinement theorem: the conclusion `U S` names

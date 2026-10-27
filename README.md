@@ -55,6 +55,9 @@ costs more tokens than the example surface without a correctness gain, so
 drift only on Haiku Markdown and roughly doubles tokens, so it is an option, not
 the default loop. The decisions and the typed findings are in
 `docs/lean-spec-3-plan.md`, step 8, and `bench/Findings.lean`.
+No run in either round wrote a theorem: every Lean-arm row closed in `report` as
+`tested`, and none earned the mark below. What the bench measured is the example
+discipline; the kernel evidence is a separate claim with its own gaps.
 
 ## The loop
 
@@ -153,7 +156,10 @@ end MyApp
 `Statement`. A row is `open` until it has a witness with no `sorry`, no
 non-standard axiom and no missing sign-off; a closed row says how far its evidence
 reaches: `proved`, `model` (proved of a model, not the shipped code) or `signed`.
-The **lean-spec-verified** mark holds when every `must` row is closed.
+The **lean-spec-verified** mark holds when every `must` row is closed. `model`,
+`vacuous` and `signed` are reported, not blocking, so read a row's gaps, not the mark
+alone. `report` keeps a row open while one of its examples fails, whatever the kernel
+proved of a model.
 `Statement.render` prints it one field per line. The digest is a fingerprint, not
 a signature; commit the statement next to the spec so the commit binds it.
 

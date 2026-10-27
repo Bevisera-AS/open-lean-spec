@@ -28,6 +28,10 @@ def notARequirement (S : Sig) : Prop := S.f 0 = 0
 #guard_msgs in
 @[refutes] theorem notNegated : isId ⟨id⟩ := fun _ => rfl
 
+/-- error: @[refutes]: LeanSpec.Logic.Tests.sorriedCounter depends on sorryAx; a sorry'd counter-model rules nothing out -/
+#guard_msgs (error) in
+@[refutes] theorem sorriedCounter : ¬ isId ⟨fun n => n + 1⟩ := by sorry
+
 /-- error: @[requirement] LeanSpec.Logic.Tests.notProp must have type `Sig → Prop` -/
 #guard_msgs in
 @[requirement must] def notProp (S : Sig) : Nat := S.f 0

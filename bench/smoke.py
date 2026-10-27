@@ -75,6 +75,10 @@ def main(root):
             continue
         code, out = sh("lake exe spec check", ws)
         ok &= expect(code == 0 and '"ok":true' in out.replace(" ", ""), f"{arm}: check passes", out)
+        code, out = sh("lake exe spec statement", ws)
+        ok &= expect(code == 0 and "mark none" in out and out.count("status open") == 3
+                     and out.count("gap no-witness") == 3,
+                     f"{arm}: statement leaves an example-only spec open, mark none", out)
         code, out = sh("./test.sh", ws)
         ok &= expect(code == 0 and "TESTS passed=5 failed=0" in out, f"{arm}: test runs the five examples", out)
         code, out = sh("lake exe spec report ./run", ws)
@@ -82,6 +86,11 @@ def main(root):
         ok &= expect(code == 0 and len(rows) == 3 and all(r["tested"] for r in rows),
                      f"{arm}: report marks every row tested", out)
         (ws / "main.py").write_text(BROKEN)
+        code, out = sh("lake exe spec report ./run", ws)
+        rows = [json.loads(l) for l in out.splitlines() if l.startswith("{") and '"requirement"' in l]
+        add = [r for r in rows if r["requirement"].endswith("add")]
+        ok &= expect(code == 1 and len(add) == 1 and add[0]["status"] == "open" and not add[0]["tested"],
+                     f"{arm}: report keeps a row with a failing example open", out)
         code, out = sh("./next", ws)
         ok &= expect(code == 1 and "fix it first" in out, f"{arm}: ./next refuses while tests fail", out)
         (ws / "main.py").write_text(PROG)
