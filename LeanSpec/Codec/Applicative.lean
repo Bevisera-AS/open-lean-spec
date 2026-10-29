@@ -1,7 +1,7 @@
 module
 
-public import LeanSpec.Validated
-public meta import LeanSpec.Validated
+public import LeanKb.Validated
+public meta import LeanKb.Validated
 
 /-!
 # A codec algebra: `Codec R D` with round-trips proved once

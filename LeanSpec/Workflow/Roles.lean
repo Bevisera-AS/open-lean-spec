@@ -28,7 +28,7 @@ skill refereeGates := {
     ⟨"`lake exe spec check` must exit 0 before a proposal goes to review; every problem it lists is fixed, none is argued with.", by decide +kernel⟩,
     ⟨"Apply begins only after a reviewed proposal; the builder does not review its own spec.", by decide +kernel⟩,
     ⟨"`./next` releases the next change request only when `./test.sh` passes; a change request is applied to spec, program and examples together.", by decide +kernel⟩,
-    ⟨"`lake exe spec report ./run` must exit 0 before archive: every `must` row proved, model, signed, refined or tested.", by decide +kernel⟩,
+    ⟨"`lake exe spec report ./run` must exit 0 before archive: every `must` row meets its bar (`tested`, `evidenced` or `proved`); a row below its bar is read, worked further or signed off, never hidden.", by decide +kernel⟩,
     ⟨"Only a person signs off; a green report is evidence for the reviewer, never acceptance.", by decide +kernel⟩
   ], by decide +kernel⟩
   antipatterns := #[
@@ -44,12 +44,12 @@ skill refereeGates := {
 skill roleBuilder := {
   id := ⟨"orchestration.roleBuilder", by decide +kernel⟩
   oneLiner := ⟨"Builder: write the spec as Lean declarations with examples, then the program, until the referee passes.", by decide +kernel⟩
-  purpose := ⟨"Deliver Spec.lean and the program in one workspace, with examples as the only tests and theorems where properties can be stated.", by decide +kernel⟩
+  purpose := ⟨"Deliver Spec.lean and the program in one workspace, with examples as the only tests and the evidence the bar asks for.", by decide +kernel⟩
   rules := ⟨#[
     ⟨"Work only in the workspace; read nothing outside it, and read the library through `lake exe spec help`, not its sources.", by decide +kernel⟩,
     ⟨"Write Spec.lean first (propose), then the program (apply); keep them consistent when a change request arrives.", by decide +kernel⟩,
     ⟨"Define a requirement before a theorem names it in `@[evidence]`; an unknown name is a compile error and a wasted build.", by decide +kernel⟩,
-    ⟨"Prog.lean imports Spec, so a spec edit rebuilds the program; batch spec edits rather than alternating them with builds.", by decide +kernel⟩,
+    ⟨"The bar is given (`spec_bar`, or the word on the requirement). Theorems go in Evidence.lean, never in the program; evidence beyond the bar is welcome once the tests pass, and a proof that will not close is left as `sorry`, a sketch, not fought.", by decide +kernel⟩,
     ⟨"Be economical: no explanations, no summaries, no scratch files outside the workspace; reply DONE when `./next` says there are no more change requests.", by decide +kernel⟩
   ], by decide +kernel⟩
   antipatterns := #[

@@ -1,11 +1,11 @@
 module
 
 public import LeanUtil
-public import LeanSpec.Validated
+public import LeanKb.Validated
 public import LeanSpec.Trace
 public import LeanSpec.Reflection
 public meta import LeanUtil
-public meta import LeanSpec.Validated
+public meta import LeanKb.Validated
 public meta import LeanSpec.Trace
 public meta import LeanSpec.Reflection
 

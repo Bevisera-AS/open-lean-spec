@@ -1,6 +1,8 @@
 """Deterministic bench smoke, no model: build a workspace for every arm from the
 templates, put a known spec and program in the Lean-arm ones, and run the
 referee on them (check, test, report, the ./next gate, the jeq comparator).
+Then a Lean-target workspace: theorems in Evidence.lean, a sketch among them, a
+proof that does not compile, and the bar (`spec_bar evidenced`) in the report.
 
   python3 bench/smoke.py [DIR]      DIR defaults to a temp directory
 
@@ -40,6 +42,37 @@ else:
     print(json.dumps({"error": "unknown op", "detail": None}))
 '''
 BROKEN = PROG.replace("sum(j[\"xs\"])", "0")
+
+# The Lean target: the same program in Lean, theorems about it in Evidence.lean.
+LEAN_PROG = '''import Lean.Data.Json
+open Lean
+
+def addInts (xs : List Int) : Int := xs.foldl (· + ·) 0
+
+def answer (j : Json) : Json :=
+  match j.getObjValAs? String "op", j.getObjVal? "xs" with
+  | .ok "add", .ok (.arr xs) =>
+    Json.mkObj [("result", toJson (addInts (xs.toList.filterMap fun x => x.getInt?.toOption)))]
+  | _, _ => Json.mkObj [("error", "unknown op"), ("detail", Json.null)]
+'''
+LEAN_MAIN = '''import Prog
+
+def main : IO Unit := do
+  let s ← (← IO.getStdin).readToEnd
+  match Lean.Json.parse s with
+  | .ok j => IO.println (answer j).compress
+  | .error e => IO.eprintln e
+'''
+# One general theorem, one example-scope theorem, one sketch.
+LEAN_EVIDENCE = '''import LeanSpec
+import Spec
+import Prog
+
+@[evidence add] theorem addInts_single (x : Int) : addInts [x] = x := by simp [addInts]
+@[evidence add] theorem addInts_nil : addInts [] = 0 := rfl
+@[evidence add unknownOp] theorem answer_total (j : Lean.Json) : (answer j).isNull = false := by sorry
+'''
+LEAN_EVIDENCE_BROKEN = LEAN_EVIDENCE + "theorem wrong : addInts [1] = 2 := rfl\n"
 
 
 def sh(cmd, cwd, env=None):
@@ -85,6 +118,9 @@ def main(root):
         rows = [json.loads(l) for l in out.splitlines() if l.startswith("{") and '"requirement"' in l]
         ok &= expect(code == 0 and len(rows) == 3 and all(r["tested"] for r in rows),
                      f"{arm}: report marks every row tested", out)
+        mark = next((json.loads(l)["mark"] for l in out.splitlines() if l.startswith('{"mark"')), None)
+        ok &= expect(all(r["meets"] and r["bar"] == "tested" for r in rows) and mark == "lean-spec-verified at tested",
+                     f"{arm}: every row meets `tested` and the mark says so", out)
         (ws / "main.py").write_text(BROKEN)
         code, out = sh("lake exe spec report ./run", ws)
         rows = [json.loads(l) for l in out.splitlines() if l.startswith("{") and '"requirement"' in l]
@@ -98,7 +134,54 @@ def main(root):
         ok &= expect(code == 0 and "Change request 1" in out, f"{arm}: ./next releases the next change request", out)
         st = json.loads((rdir / "stage.json").read_text())
         ok &= expect(st["i"] == 1 and len(st["log"]) == 2, f"{arm}: stage.json records both calls")
+    ok &= lean_target(root)
     return 0 if ok else 1
+
+
+def lean_target(root):
+    """Theorems live in Evidence.lean: the loop never waits on one, a sketch is
+    listed and not counted, and the bar decides what `report` accepts."""
+    ok = True
+    rdir = root / "smoke-lean-core"
+    ws = rdir / "ws"
+    brief = workspace.make(ws, "lru", "core", "lean", bar="evidenced")
+    (rdir / "meta.json").write_text(json.dumps({"task": "lru"}))
+    ok &= expect("Evidence.lean" in brief and "spec_bar evidenced" in (ws / "Spec.lean").read_text(),
+                 "lean: brief names Evidence.lean and Spec.lean carries the bar")
+    (ws / "Spec.lean").write_text(SPEC.replace("open LeanSpec.Core Lean\n", "open LeanSpec.Core Lean\n\nspec_bar evidenced\n"))
+    (ws / "Prog.lean").write_text(LEAN_PROG)
+    (ws / "Main.lean").write_text(LEAN_MAIN)
+    (ws / "Evidence.lean").write_text(LEAN_EVIDENCE_BROKEN)
+    code, out = sh("./build", ws)
+    ok &= expect(code == 0, "lean: ./build builds the program with a broken Evidence.lean", out)
+    code, out = sh("./test.sh", ws)
+    ok &= expect(code == 0 and "TESTS passed=5 failed=0" in out,
+                 "lean: ./test.sh passes with a broken Evidence.lean (spec-test imports Spec only)", out)
+    code, out = sh("lake exe spec check", ws)
+    ok &= expect(code != 0 and "Evidence.lean" in out, "lean: check stops on a proof that does not compile", out)
+    (ws / "Evidence.lean").write_text(LEAN_EVIDENCE)
+    code, out = sh("lake exe spec check", ws)
+    flat = out.replace(" ", "")
+    ok &= expect(code == 0 and '"sketched":["answer_total"]' in flat and '"general":["addInts_single"]' in flat
+                 and '"bar":"evidenced"' in flat,
+                 "lean: check lists the sketch apart from the general evidence, with the bar", out)
+    code, out = sh("lake exe spec report ./run", ws)
+    rows = {json.loads(l)["requirement"].split(".")[-1]: json.loads(l)
+            for l in out.splitlines() if l.startswith("{") and '"requirement"' in l}
+    mark = next((json.loads(l)["mark"] for l in out.splitlines() if l.startswith('{"mark"')), None)
+    ok &= expect(code == 1 and rows["add"]["meets"] and rows["add"]["status"] == "evidenced"
+                 and not rows["unknownOp"]["meets"] and rows["unknownOp"]["status"] == "tested"
+                 and rows["unknownOp"]["bar"] == "evidenced" and mark == "none"
+                 and any(e["sorry"] for e in rows["add"]["evidence"]),
+                 "lean: at `evidenced` the row with general evidence meets, the one without does not; the sketch is flagged", out)
+    (ws / "Spec.lean").write_text(SPEC.replace("open LeanSpec.Core Lean\n", "open LeanSpec.Core Lean\n\nspec_bar tested\n"))
+    code, out = sh("lake exe spec report ./run", ws)
+    mark = next((json.loads(l)["mark"] for l in out.splitlines() if l.startswith('{"mark"')), None)
+    ok &= expect(code == 0 and mark == "lean-spec-verified at tested",
+                 "lean: at `tested` every row meets and the mark names the bar", out)
+    code, out = sh("lake exe spec help 2>/dev/null", ws)  # stdout only: lake's progress lines go to stderr
+    ok &= expect(code == 0 and len(out.strip().splitlines()) <= 60, f"lean: help is {len(out.strip().splitlines())} lines (<= 60)")
+    return ok
 
 
 if __name__ == "__main__":

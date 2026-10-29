@@ -2,7 +2,7 @@ module
 
 public import LeanSpec.Trace
 public import LeanSpec.Classification
-public import LeanSpec.Validated
+public import LeanKb.Validated
 public import LeanSpec.Codec.Applicative
 public meta import LeanSpec.Trace
 public meta import LeanSpec.Classification

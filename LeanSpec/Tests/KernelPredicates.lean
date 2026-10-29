@@ -1,4 +1,4 @@
-import LeanSpec.Validated
+import LeanKb.Validated
 import LeanSpec.KbAdapter.Wiki
 
 /-!

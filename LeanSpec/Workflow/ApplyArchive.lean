@@ -17,10 +17,10 @@ skill applyChange := {
   oneLiner := ⟨"Implement against reviewed requirements until check, test and report pass; do not sign off.", by decide +kernel⟩
   purpose := ⟨"Make the program satisfy the reviewed `@[requirement]` declarations without changing them.", by decide +kernel⟩
   rules := ⟨#[
-    ⟨"Work only toward the open rows of `lake exe spec report ./run`: an example that fails, a `must` row that is open.", by decide +kernel⟩,
+    ⟨"Work only toward the open rows of `lake exe spec report ./run`: an example that fails, a `must` row below its bar (`tested`, `evidenced` or `proved`).", by decide +kernel⟩,
     ⟨"Keep `lake exe spec check` and `./test.sh` green; `./next` releases the next change request only when `test` passes.", by decide +kernel⟩,
     ⟨"Never edit a requirement, an example or a Prop to make the program or a proof go through; that is a new proposal.", by decide +kernel⟩,
-    ⟨"For a Lean product, add `@[satisfies]` theorems `R impl` where a requirement can be proved; add `@[evidence R]` theorems about the functions where it cannot. No sorry. Only `@[satisfies]` closes a row.", by decide +kernel⟩,
+    ⟨"For a Lean product, add `@[satisfies]` theorems `R impl` where a requirement can be proved; add `@[evidence R]` theorems about the functions where it cannot. A theorem with `sorry` is a sketch: listed, never counted. Only `@[satisfies]` closes a row.", by decide +kernel⟩,
     ⟨"Do not write `@[sign_off]` axioms; implementation is not acceptance.", by decide +kernel⟩
   ], by decide +kernel⟩
   antipatterns := #[
@@ -37,7 +37,7 @@ skill archiveChange := {
   oneLiner := ⟨"Accept a change by a named human sign-off over the requirement digests and commit the report.", by decide +kernel⟩
   purpose := ⟨"Acceptance is a human judgement recorded in Lean, not a merge of text.", by decide +kernel⟩
   rules := ⟨#[
-    ⟨"A person accepts with `@[sign_off who \"digest\"] axiom a : SignOff R impl`, quoting `#requirement_digest R`; what code proves needs no sign-off.", by decide +kernel⟩,
+    ⟨"A person accepts with `@[sign_off who \"digest\"] axiom a : SignOff R impl`, quoting `#requirement_digest R`; what code proves needs no sign-off. A row below its bar is accepted this way or not at all, and the committed report shows what was accepted.", by decide +kernel⟩,
     ⟨"Commit `lake exe spec report ./run` next to the spec; the commit binds the report, and its digests are what the next proposal is compared against.", by decide +kernel⟩,
     ⟨"A passing build, a closed statement or a passing report is not acceptance.", by decide +kernel⟩,
     ⟨"When the requirement changes, its digest changes and the old sign-off goes stale; it must be signed again.", by decide +kernel⟩,

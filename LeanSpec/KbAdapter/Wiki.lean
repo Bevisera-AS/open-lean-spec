@@ -1,9 +1,9 @@
 module
 
-public import LeanSpec.Kb
+public import LeanKb.Kb
 public import LeanSpec.Reflection
 public import LeanSpec.Wiki
-public meta import LeanSpec.Kb
+public meta import LeanKb.Kb
 public meta import LeanSpec.Reflection
 public meta import LeanSpec.Wiki
 public meta import LeanUtil

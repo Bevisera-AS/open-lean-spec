@@ -84,13 +84,38 @@ def coverage(ws, lang):
 
 
 def lean_stats(ws):
-    src = [p for p in ws.glob("*.lean") if p.name not in ("lakefile.lean", "SpecMain.lean")]
+    src = [p for p in ws.glob("*.lean") if p.name not in ("lakefile.lean", "SpecMain.lean", "TestMain.lean")]
     text = "\n".join(p.read_text(errors="replace") for p in src)
     heads = re.findall(r"^\s*(?:@\[[^\]]*\]\s*)?(?:private\s+)?(?:theorem|lemma)\s+\S+(.*?):=", text, re.M | re.S)
     general = sum(1 for h in heads if re.match(r"\s*[({\[]", h) or re.match(r"\s*:\s*∀", h))
     return {"theorems": len(heads), "general": general,
             "guards": len(re.findall(r"^\s*#guard\b", text, re.M)),
             "sorries": len(re.findall(r"\bsorry\b", text))}
+
+
+def spec_report(ws):
+    """`lake exe spec report ./run`, summarised: rows, how many meet their bar, which
+    are below it, sketches, and the mark. The divergence record of a run."""
+    code, out, err = sh("lake exe spec report ./run", ws)
+    rows, mark = [], None
+    for line in out.splitlines():
+        if not line.startswith("{"):
+            continue
+        try:
+            j = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if "requirement" in j:
+            rows.append(j)
+        elif "mark" in j:
+            mark = j["mark"]
+    if not rows:
+        return {"exit": code, "raw": (out + err)[-300:]}
+    return {"exit": code, "rows": len(rows), "meets": sum(1 for r in rows if r.get("meets")),
+            "below_bar": [f'{r["requirement"].split(".")[-1]}:{r["status"]}<{r["bar"]}'
+                          for r in rows if not r.get("meets") and r.get("strength") == "must"],
+            "sketches": sum(1 for r in rows for e in r.get("evidence", []) if e.get("sorry")),
+            "bars": sorted({r.get("bar") for r in rows}), "mark": mark}
 
 
 def sizes(ws):
@@ -118,6 +143,7 @@ def score(rdir: Path, meta: dict):
     code, _, err = sh("./build", ws)
     r = {k: meta[k] for k in ("run", "task", "lang", "arm", "model", "seed")}
     r["gate"] = bool(meta.get("gate"))
+    r["bar"] = meta.get("bar")
     r["completed"] = all(not s.get("is_error") for s in meta["stages"]) and len(meta["stages"]) == 3
     r["usage"] = tokens(meta["stages"])
     if meta.get("usage_exact"):
@@ -137,6 +163,7 @@ def score(rdir: Path, meta: dict):
             r["spec_check"] = json.loads(out.strip().splitlines()[-1])
         except (json.JSONDecodeError, IndexError):
             r["spec_check"] = {"raw": out[-300:]}
+        r["spec_report"] = spec_report(ws)
     r["sizes"] = sizes(ws)
     (rdir / "result.json").write_text(json.dumps(r, indent=1))
     res = BENCH / "results"

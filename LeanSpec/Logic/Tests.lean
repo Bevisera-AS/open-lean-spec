@@ -28,8 +28,9 @@ def notARequirement (S : Sig) : Prop := S.f 0 = 0
 #guard_msgs in
 @[refutes] theorem notNegated : isId ⟨id⟩ := fun _ => rfl
 
-/-- error: @[refutes]: LeanSpec.Logic.Tests.sorriedCounter depends on sorryAx; a sorry'd counter-model rules nothing out -/
-#guard_msgs (error) in
+-- A sorry'd counter-model is a sketch: recorded, listed, never counted.
+/-- warning: declaration uses `sorry` -/
+#guard_msgs in
 @[refutes] theorem sorriedCounter : ¬ isId ⟨fun n => n + 1⟩ := by sorry
 
 /-- error: @[requirement] LeanSpec.Logic.Tests.notProp must have type `Sig → Prop` -/
@@ -57,7 +58,11 @@ def isDouble (S : Sig) : Prop := ∀ n, S.f n = 2 * n
 spec_statement st for LeanSpec.Logic.Tests
 
 #guard !st.verified
+#guard st.mark == "none"
 #guard st.gapsOf ``isId == #[.usesSorry, .modelOnly, .vacuous]
+#guard (st.row? ``isId).map (·.sketchedCounters) == some #[``sorriedCounter]
+#guard (st.row? ``isId).map (·.counters.size) == some 0
+#guard (st.row? ``isId).map (·.bar) == some .proved
 #guard st.gapsOf ``isDouble == #[.noWitness]
 #guard (st.gapsOf ``fixesZero).contains (.nonStandardAxiom ``trustMe)
 #guard (st.gapsOf ``fixesZero).contains .vacuous
@@ -127,6 +132,20 @@ def wf (axs : Array Lean.Name) (shipped := true) (awaiting := false) : WitnessFa
 #guard (gaps #[wf #[`rev] (shipped := false)] #[⟨`rev, `ann, true⟩] 0).all (!·.blocks)
 #guard fnv1a64 "" == 14695981039346656037
 
+-- Gaps against a bar: `model-only` blocks at `proved` alone; `vacuous` never.
+#guard Gap.modelOnly.blocksAt .proved
+#guard !Gap.modelOnly.blocksAt .evidenced
+#guard !Gap.modelOnly.blocksAt .tested
+#guard !Gap.vacuous.blocksAt .proved
+#guard Gap.noWitness.blocksAt .tested
+#guard Gap.usesSorry.blocksAt .tested
+#guard (Gap.childOpen `c).blocksAt .tested
+#guard !(Gap.signedOff `ann).blocksAt .proved
+#guard Bar.min .proved .tested == .tested
+#guard Bar.min .evidenced .proved == .evidenced
+#guard Bar.parse? "evidenced" == some .evidenced
+#guard Bar.parse? "verified" == none
+
 
 -- ─── Black-box requirements: examples, IOReq, evidence ───────────────────────
 
@@ -163,9 +182,10 @@ def addInts (a b : Int) : Int := a + b
 #guard_msgs in
 @[example add] def notEx : Nat := 0
 
-/-- error: @[evidence]: LeanSpec.Logic.Tests.sorried2 depends on sorryAx; a sorry'd proof is not evidence -/
-#guard_msgs (error) in
-@[evidence add] theorem sorried2 : addInts 1 1 = 2 := by sorry
+-- A sorry'd evidence theorem is a sketch: listed with its flag, never counted.
+/-- warning: declaration uses `sorry` -/
+#guard_msgs in
+@[evidence add] theorem sorried2 (a : Int) : addInts a 0 = a := by sorry
 
 /-- error: @[evidence] goes on a theorem -/
 #guard_msgs in
@@ -176,7 +196,8 @@ def addView := view.find? (·.name == "LeanSpec.Logic.Tests.add")
 
 #guard addView.map (·.examples.map (·.name)) == some ["basic", "neg"]
 #guard addView.map (·.evidence) ==
-  some [("LeanSpec.Logic.Tests.addInts_comm", true), ("LeanSpec.Logic.Tests.addInts_zero", false)]
+  some [("LeanSpec.Logic.Tests.addInts_comm", true, false), ("LeanSpec.Logic.Tests.addInts_zero", false, false),
+    ("LeanSpec.Logic.Tests.sorried2", true, true)]
 #guard addView.map (·.strength) == some "must"
 #guard addView.map (·.label) == some "add two numbers"
 #guard (view.find? (·.name == "LeanSpec.Logic.Tests.echo")).map (·.post.isSome) == some true
@@ -186,6 +207,14 @@ def addView := view.find? (·.name == "LeanSpec.Logic.Tests.add")
 
 spec_statement st3 for LeanSpec.Logic.Tests
 #guard (st3.row? ``add).map (·.kind) == some "examples"
+-- Over `IOSig` the default bar is `tested`; the sketch is on the row, flagged.
+#guard (st3.row? ``add).map (·.bar) == some .tested
+#guard (st3.row? ``add).map (·.evidence) == some #[
+  { thm := ``addInts_comm, general := true, sketch := false },
+  { thm := ``addInts_zero, general := false, sketch := false },
+  { thm := ``sorried2, general := true, sketch := true }]
+#guard (st3.row? ``add).map (·.generalEvidence) == some true
+#guard (st3.row? ``echo).map (·.generalEvidence) == some false
 #guard (st3.row? ``echo).map (·.kind) == some "io"
 #guard (st3.row? ``isId).map (·.kind) == some "prop"
 #guard (st3.row? ``add).map (·.examples) == some #[``add_neg]
@@ -222,9 +251,21 @@ def userThree (S : Sig) : Prop := S.f 3 = 3
 #guard_msgs in
 @[refines] theorem noChild (S : Sig) (h : S.f 5 = 5) : userFromId S := h
 
-/-- error: unknown level `later`; expected `system` or `user` -/
+/-- error: unknown word `later`; expected a level (`system`, `user`) or a bar (`tested`, `evidenced`, `proved`) -/
 #guard_msgs in
 @[requirement must later] def badLevel (S : Sig) : Prop := S.f 0 = 0
+
+/-- error: @[requirement]: the level is given twice -/
+#guard_msgs in
+@[requirement must user system] def twoLevels (S : Sig) : Prop := S.f 0 = 0
+
+/-- error: @[requirement]: the bar is given twice -/
+#guard_msgs in
+@[requirement must tested proved] def twoBars (S : Sig) : Prop := S.f 0 = 0
+
+/-- error: spec_bar: expected `tested`, `evidenced` or `proved` -/
+#guard_msgs in
+spec_bar kernel
 
 spec_statement st4 for LeanSpec.Logic.Tests
 
@@ -245,6 +286,55 @@ spec_statement st4 for LeanSpec.Logic.Tests
 #guard gaps #[wf #[``propext]] #[] 1 .user #[⟨`t, #[`c]⟩] == #[]
 
 end Refinement
+
+-- ─── The bar: per requirement, per spec, by default ──────────────────────────
+
+section Bars
+
+/-- `f 4 = 4`, proved of a model, held to `evidenced`. -/
+@[requirement must evidenced]
+def modelIsEnough (S : Sig) : Prop := S.f 4 = 4
+
+@[satisfies] theorem modelIsEnough_model : modelIsEnough ⟨id⟩ := rfl
+
+/-- `f 6 = 6`, proved of a model, held to `proved` (the default over `Sig`). -/
+@[requirement must]
+def modelIsNotEnough (S : Sig) : Prop := S.f 6 = 6
+
+@[satisfies] theorem modelIsNotEnough_model : modelIsNotEnough ⟨id⟩ := rfl
+
+/-- `f 7 = 7` at user level, held to `tested`, in either word order. -/
+@[requirement should tested user]
+def userTested (S : Sig) : Prop := S.f 7 = 7
+
+spec_statement st5 for LeanSpec.Logic.Tests
+
+#guard (st5.row? ``modelIsEnough).map (·.bar) == some .evidenced
+#guard st5.statusOf ``modelIsEnough == "model"
+#guard (st5.row? ``modelIsEnough).map (·.kernelMeets) == some true
+#guard (st5.row? ``modelIsNotEnough).map (·.bar) == some .proved
+#guard st5.statusOf ``modelIsNotEnough == "model"
+#guard (st5.row? ``modelIsNotEnough).map (·.kernelMeets) == some false
+#guard (st5.row? ``userTested).map (fun r => (r.bar, r.level)) == some (.tested, .user)
+#guard (st5.row? ``looksOk).map (·.kernelMeets) == some true   -- shipped, sorry-free
+#guard st5.weakestBar == .tested   -- `add` is a must row over IOSig
+#guard st5.mark == "none"
+
+-- The spec's default applies to every row without a word of its own; a row's
+-- own word still wins.
+spec_bar evidenced
+spec_statement st6 for LeanSpec.Logic.Tests
+#guard (st6.row? ``modelIsNotEnough).map (·.bar) == some .evidenced
+#guard (st6.row? ``modelIsNotEnough).map (·.kernelMeets) == some true
+#guard (st6.row? ``isId).map (·.bar) == some .evidenced
+#guard (st6.row? ``add).map (·.bar) == some .evidenced
+#guard (st6.row? ``userTested).map (·.bar) == some .tested
+#guard st6.weakestBar == .evidenced   -- `userTested` is a should row
+spec_bar proved
+spec_statement st7 for LeanSpec.Logic.Tests
+#guard (st7.row? ``add).map (·.bar) == some .proved
+
+end Bars
 
 -- ─── The digest covers attached examples ─────────────────────────────────────
 

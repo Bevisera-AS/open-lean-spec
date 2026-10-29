@@ -10,6 +10,50 @@ axioms (`propext`, `Classical.choice`, `Quot.sound`) — no `sorry`. From 1.1.0 
 no `native_decide` either, and `lake check --paranoid` accepts the
 development (see `LeanSpec/Kb.lean`'s trust-boundary note).
 
+## [3.1.0] — 2026-10-29
+
+The bar: how proved a requirement must be is the author's to say, and `report`
+says where the evidence falls short of it. And the knowledge core is its own
+package, lean-kb.
+
+### Added
+- `Bar` (`tested`, `evidenced`, `proved`): a word on the attribute
+  (`@[requirement must proved]`, in either order with the level) or the spec's
+  default (`spec_bar evidenced`); without either, `tested` over `IOSig` and
+  `proved` over any other signature. `Gap.blocksAt`, `Row.bar`, `Row.kernelMeets`,
+  `Statement.weakestBar`, `Statement.mark`.
+- `report`: `bar` and `meets` per row, status `evidenced` (tested, with a sorry-free
+  general `@[evidence]` theorem), `sorry` on each evidence entry, a last line with
+  the mark; exit 0 iff every `must` row meets its bar. `check` lists `sketched`
+  evidence and the bar. `statement` prints `bar` and `kernel-meets`.
+- Bench: `--bar` on `run.py`, `--bars` on `batch.py`, a bar on `subagent.py prep`;
+  the Lean target's brief asks for what the bar needs; `check.py` records a
+  `spec_report` summary (rows below their bar, sketches, the mark); `smoke.py`
+  covers a Lean-target workspace with a sketch, a broken proof and two bars.
+
+### Changed
+- The knowledge core moved to the package
+  [lean-kb](https://gitlab.com/bevisera/open-lean-kb) v0.1.0, which lean-spec
+  requires: modules `LeanKb.Kb`, `LeanKb.Determination`, `LeanKb.WikiAccess`,
+  `LeanKb.Validated` and `LeanUtil` (were `LeanSpec.Kb`, `LeanSpec.Determination`,
+  `LeanSpec.WikiAccess`, `LeanSpec.Validated`, `LeanUtil` here). Declaration names are
+  unchanged, so only import lines change. The agent library `LeanSpec` still imports
+  neither; `LeanSpecProcess` and `LeanSpecKb` do.
+- `process.reflect`: the antipattern is changing a skill, requirement or steering
+  straight from a reflection instead of setting `promoted` for the human gate.
+- A theorem under `@[evidence]` or `@[refutes]` that depends on `sorry` is a
+  sketch, recorded with a flag and never counted, instead of a compile error. A
+  sketched counter-model leaves the row `vacuous`.
+- The mark names the weakest bar among the `must` rows:
+  `lean-spec-verified at tested|evidenced|proved`. `model-only` blocks at `proved`
+  alone, so a spec proved of a model is held to `evidenced` (the Theme demo says
+  `spec_bar evidenced`).
+- Lean-target workspaces: theorems in `Evidence.lean`, built by `spec` (check,
+  statement, report) and not by `prog` or `spec-test` (what `./test.sh` runs), so a
+  proof never stops the loop. `Prog.lean` no longer imports `Spec`.
+- `ReqView.evidence` carries `(name, general, sketch)`; `Row.evidence` is
+  `EvidenceRow`; `Row.sketchedCounters`.
+
 ## [3.0.0] — 2026-10-27
 
 lean-spec and lean-spec-core merged into one package: the surface the bench showed

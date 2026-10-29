@@ -11,12 +11,18 @@ CXX = f"c++ -isysroot {SDK} -nostdinc++ -isystem {SDK}/usr/include/c++/v1 -std=c
 
 RUN = {"py": "exec python3 main.py",
        "cpp": "exec ./prog",
-       "lean": "exec .lake/build/bin/prog"}
+       "lean": "exec .lake/build/bin/prog",
+       "ts": "exec node dist/main.js"}
 BUILD = {"py": "python3 -m py_compile main.py",
          "cpp": f"{CXX} -O1 -o prog *.cpp",
-         "lean": "lake build prog"}
+         "lean": "lake build prog",
+         "ts": "[ -d node_modules ] || npm install --no-audit --no-fund --loglevel=error\nnpx tsc -p ."}
 SRC = {"py": "main.py", "cpp": "*.cpp (C++20, no third-party libraries)",
-       "lean": ("Lean 4 core only (Lean.Json is available): logic and any theorems in Prog.lean, "
+       "ts": ("TypeScript under src/ (tsc --strict, no runtime dependencies): the logic in src/model.ts, "
+              "src/main.ts the stdin/stdout entry over it, and the web page index.html + src/page.ts "
+              "importing the SAME src/model.ts, served by `npm start`"),
+       "lean": ("Lean 4 core only (Lean.Json is available): the logic in Prog.lean, theorems about it in "
+                "Evidence.lean (it imports LeanSpec, Spec and Prog; nothing the program runs depends on it), "
                 "Main.lean only does IO (`import Prog`, `def main : IO Unit`)")}
 
 IO_RULE = ("The program reads one JSON value on stdin and writes one JSON value on stdout. "
@@ -59,24 +65,41 @@ BRIEF["lean"] = BRIEF["core"]
 
 CHANGE = "Apply this change request to spec, program and tests.\n\n"
 
-# Every run must show each requirement correct: by tests, or (Lean target) also by proofs.
+# Every run must show each requirement correct: by tests, and (Lean target) by what the
+# bar asks for. The bar is the author's: `tested` (the default), `evidenced` or `proved`.
 EVIDENCE = {
     "md": ("4. Correctness: show every requirement is met, by tests in test.sh{orproofs}.\n"
            "   Under each requirement in SPEC.md, name the tests{andproofs} that show it.\n"),
     "lean": ("4. Correctness: every requirement is shown by its examples (./test.sh runs them){orproofs}.\n"),
 }
 PROOF_TEXT = {
-    "md": (" or by theorems in Prog.lean (no sorry) that hold for all inputs (state them with ∀;\n"
+    "md": (" or by theorems in Evidence.lean (no sorry) that hold for all inputs (state them with ∀;\n"
            "   single-input checks are tests, not proofs)", " and theorems"),
-    "lean": (" and, where the property can be stated about your functions, by theorems in Prog.lean\n"
-             "   (it imports LeanSpec and Spec) that hold for all inputs (state them with ∀; single-input checks belong\n"
-             "   in examples), tagged `@[evidence R]` with the requirement's name, no sorry; `lake exe spec check` lists them as general", ""),
+    "lean": {
+        None: ("", ""),
+        "tested": ("", ""),
+        "evidenced": (" and, where a property of your functions can be stated, by one theorem per requirement in\n"
+                      "   Evidence.lean that holds for all inputs (∀ over an input; single-input checks belong in examples),\n"
+                      "   tagged `@[evidence R]` with the requirement's name. A proof you cannot close stays as `sorry`: it is\n"
+                      "   a sketch, listed by `check` and never counted. Spec.lean says `spec_bar evidenced`; `lake exe spec\n"
+                      "   report ./run` says per row whether it meets the bar", ""),
+        "proved": (" and by proof: in Evidence.lean, a `@[shipped]` Lean value of a signature your requirements are\n"
+                   "   stated over and a `@[satisfies]` theorem per requirement, `@[evidence]` theorems where a requirement\n"
+                   "   cannot be stated that way. A proof you cannot close stays as `sorry`: a sketch, listed and never\n"
+                   "   counted. Spec.lean says `spec_bar proved`; `lake exe spec report ./run` says per row whether it\n"
+                   "   meets the bar", ""),
+    },
 }
 
 
-def evidence(arm, lang):
+def evidence(arm, lang, bar=None):
     key = "lean" if arm in LEAN_ARMS else arm
-    orp, andp = PROOF_TEXT[key] if lang == "lean" else ("", "")
+    if lang != "lean":
+        orp, andp = "", ""
+    elif key == "md":
+        orp, andp = PROOF_TEXT["md"]
+    else:
+        orp, andp = PROOF_TEXT["lean"][bar]
     return EVIDENCE[key].format(orproofs=orp, andproofs=andp)
 
 
@@ -85,6 +108,23 @@ JEQ = ("#!/bin/sh\n# JSON equality by value: ./jeq EXPECTED ACTUAL\n"
        "try: sys.exit(0 if json.loads(sys.argv[1]) == json.loads(sys.argv[2]) else 1)\n"
        "except ValueError: sys.exit(1)' \"$1\" \"$2\"\n")
 
+
+SERVE = """// Static server for the page: `npm start` -> http://localhost:8080
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join, normalize } from "node:path";
+const root = process.cwd(), port = Number(process.env.PORT ?? 8080);
+const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8", ".json": "application/json", ".map": "application/json" };
+createServer(async (req, res) => {
+  try {
+    let p = join(root, normalize(new URL(req.url ?? "/", "http://x").pathname));
+    if (p.endsWith("/")) p += "index.html";
+    res.writeHead(200, { "content-type": types[extname(p)] ?? "application/octet-stream" });
+    res.end(await readFile(p));
+  } catch { res.writeHead(404); res.end("not found"); }
+}).listen(port, () => console.log(`http://localhost:${port}`));
+"""
 
 LOOP = ("When ./test.sh passes, run ./next: it prints the next change request (apply it, then run ./next again)\n"
         "or tells you there are no more. Then reply DONE.")
@@ -97,10 +137,21 @@ def lakefile(arm, lang):
                   "lean_exe spec where", "  root := `SpecMain"]
     if lang == "lean":
         lines += ["", "lean_lib Prog", "", "lean_exe prog where", "  root := `Main"]
+        if arm in LEAN_ARMS:
+            # Theorems live in Evidence; `spec` (check, statement, report) builds it, the
+            # program and `spec-test` (what ./test.sh runs) do not, so a proof never
+            # stops the loop.
+            lines += ["", "lean_lib Evidence", "", "lean_exe «spec-test» where", "  root := `TestMain"]
     return "\n".join(lines) + "\n"
 
 
-def make(ws: Path, task: str, arm: str, lang: str):
+MAIN = "def main (args : List String) : IO UInt32 :=\n  LeanSpec.Core.cli spec% statement% args\n"
+
+
+def make(ws: Path, task: str, arm: str, lang: str, bar=None):
+    """Write the workspace for one run and return the brief. `bar` (tested, evidenced,
+    proved or None for the library's default) is written into Spec.lean as `spec_bar`
+    and picks the brief's proof paragraph on the Lean target."""
     ws.mkdir(parents=True)
     files = {"build": f"#!/bin/sh\nset -e\n{BUILD[lang]}\n", "run": f"#!/bin/sh\n{RUN[lang]}\n",
              "next": f"#!/bin/sh\nexec python3 {ROOT / 'bench' / 'stage.py'} {ws.resolve().parent}\n",
@@ -109,15 +160,31 @@ def make(ws: Path, task: str, arm: str, lang: str):
         files["lakefile.lean"] = lakefile(arm, lang)
         files["lean-toolchain"] = (ROOT / "lean-toolchain").read_text()
     if arm in LEAN_ARMS:
-        files["Spec.lean"] = "import LeanSpec\nopen LeanSpec.Core Lean\n\n"
-        files["SpecMain.lean"] = ("import Spec\n" + ("import Prog\n" if lang == "lean" else "") + "\ndef main (args : List String) : IO UInt32 :=\n"
-                                  "  LeanSpec.Core.cli spec% statement% args\n")
-        files["test.sh"] = '#!/bin/sh\nexec lake exe spec test "${PROG:-./run}"\n'
+        files["Spec.lean"] = ("import LeanSpec\nopen LeanSpec.Core Lean\n" +
+                              (f"\nspec_bar {bar}\n" if bar else "") + "\n")
+        if lang == "lean":
+            files["SpecMain.lean"] = "import Evidence\n\n" + MAIN
+            files["TestMain.lean"] = "import Spec\n\n" + MAIN
+            files["test.sh"] = '#!/bin/sh\nexec lake exe spec-test test "${PROG:-./run}"\n'
+        else:
+            files["SpecMain.lean"] = "import Spec\n\n" + MAIN
+            files["test.sh"] = '#!/bin/sh\nexec lake exe spec test "${PROG:-./run}"\n'
     if lang == "lean":
-        files["Prog.lean"] = "import LeanSpec\nimport Spec\n" if arm in LEAN_ARMS else ""
+        files["Prog.lean"] = ""
+        if arm in LEAN_ARMS:
+            files["Evidence.lean"] = "import LeanSpec\nimport Spec\nimport Prog\n"
+    if lang == "ts":
+        files["package.json"] = json.dumps({"name": "ws", "private": True, "type": "module",
+            "scripts": {"build": "tsc -p .", "start": "node serve.mjs"},
+            "devDependencies": {"typescript": "^5.6.0", "@types/node": "^22.0.0"}}, indent=1) + "\n"
+        files["tsconfig.json"] = json.dumps({"compilerOptions": {"target": "ES2022", "lib": ["ES2022", "DOM"],
+            "module": "NodeNext", "moduleResolution": "NodeNext", "rootDir": "src", "outDir": "dist",
+            "strict": True, "noUncheckedIndexedAccess": True, "noUnusedLocals": True, "noEmitOnError": True},
+            "include": ["src"]}, indent=1) + "\n"
+        files["serve.mjs"] = SERVE
     for name, text in files.items():
         p = ws / name
         p.write_text(text)
         if name in ("build", "run", "test.sh", "next", "jeq"):
             p.chmod(p.stat().st_mode | stat.S_IEXEC)
-    return BRIEF[arm].format(src=SRC[lang], io=IO_RULE, proofs=evidence(arm, lang), loop=LOOP)
+    return BRIEF[arm].format(src=SRC[lang], io=IO_RULE, proofs=evidence(arm, lang, bar), loop=LOOP)

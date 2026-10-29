@@ -10,9 +10,11 @@ Teach agents to write requirements in **Lean 4** — not Markdown, not JSON.
 > reports are welcome.
 
 A requirement is a Lean `Prop` over a design signature. Evidence is a theorem
-the kernel checks. There are no requirements in prose: a docstring is a label,
-never the claim. The source is [`LeanSpec/Logic/Core.lean`](LeanSpec/Logic/Core.lean);
-`lake build` is the check.
+the kernel checks, or a test run `report` records; the author says per
+requirement how far it must reach (the bar: `tested`, `evidenced`, `proved`), and
+the report says where it falls short. There are no requirements in prose: a
+docstring is a label, never the claim. The source is
+[`LeanSpec/Logic/Core.lean`](LeanSpec/Logic/Core.lean); `lake build` is the check.
 
 ## What the bench showed
 
@@ -57,7 +59,11 @@ the default loop. The decisions and the typed findings are in
 `docs/lean-spec-3-plan.md`, step 8, and `bench/Findings.lean`.
 No run in either round wrote a theorem: every Lean-arm row closed in `report` as
 `tested`, and none earned the mark below. What the bench measured is the example
-discipline; the kernel evidence is a separate claim with its own gaps.
+discipline; the kernel evidence is a separate claim with its own gaps. The first
+Lean-target runs on a weaker model (glm-5.3-flash, glm-5.2) had correct programs and
+never finished, because a proof that would not close sat in the program's build;
+that is what the bar, the sketches and `Evidence.lean` answer, and round 6
+measures it.
 
 ## The loop
 
@@ -145,7 +151,12 @@ end MyApp
 ```
 
 - `@[requirement must|should]` on `def R : Sig → Prop`. `must` blocks the mark
-  while open; `should` is listed and never blocks.
+  while below its bar; `should` is listed and never blocks.
+- `@[requirement must proved]` sets the bar: `tested` (every example passes),
+  `evidenced` (tested, plus a sorry-free general `@[evidence]` theorem, or a
+  witness) or `proved` (a sorry-free `@[satisfies]` theorem about the `@[shipped]`
+  product). `spec_bar evidenced` sets the spec's default; without either, a
+  requirement over `IOSig` is held to `tested` and any other to `proved`.
 - `@[satisfies]` on `theorem t : R impl` (or `… → R impl`).
 - `@[refutes]` on `theorem t : ¬ R bad`.
 - `@[shipped]` on the `def` that is the product, not a model of it.
@@ -156,10 +167,12 @@ end MyApp
 `Statement`. A row is `open` until it has a witness with no `sorry`, no
 non-standard axiom and no missing sign-off; a closed row says how far its evidence
 reaches: `proved`, `model` (proved of a model, not the shipped code) or `signed`.
-The **lean-spec-verified** mark holds when every `must` row is closed. `model`,
-`vacuous` and `signed` are reported, not blocking, so read a row's gaps, not the mark
-alone. `report` keeps a row open while one of its examples fails, whatever the kernel
-proved of a model.
+Each row carries its bar and whether the kernel's side meets it; `model` meets
+`evidenced` and not `proved`, `vacuous` is reported at every bar. The mark names the
+weakest bar it rests on: **lean-spec-verified at tested**, **at evidenced** or **at
+proved**, when every `must` row meets its bar. `report` keeps a row open while one
+of its examples fails, whatever the kernel proved of a model, and a row below its
+bar is the divergence a person reads, works further or accepts with a sign-off.
 `Statement.render` prints it one field per line. The digest is a fingerprint, not
 a signature; commit the statement next to the spec so the commit binds it.
 
@@ -195,10 +208,15 @@ row the kernel left open is `tested` when every example passes.
 A workspace's `SpecMain.lean` is `def main (args : List String) : IO UInt32 :=
 LeanSpec.Core.cli spec% statement% args`; `lake exe spec help` is the manual,
 `check` lists every structural problem, `test ./run` runs the examples against the
-program, `statement` prints what the kernel checked. `@[evidence R]` links a theorem
-about the product's functions to the requirement it supports, by name; only a
-`@[satisfies]` theorem of type `R impl` closes a row. The bench in `bench/` measures
-this surface against Markdown (`docs/lean-spec-3-plan.md`, section 3).
+program, `statement` prints what the kernel checked, `report ./run` says per row
+whether it meets its bar. `@[evidence R]` links a theorem about the product's
+functions to the requirement it supports, by name; only a `@[satisfies]` theorem of
+type `R impl` closes a row. A theorem with `sorry` under `@[evidence]` or
+`@[refutes]` is a sketch: listed, never counted, never a build error. On the Lean
+target the theorems live in `Evidence.lean`, apart from the program, so a proof
+never stops `./build`, `./test.sh` or `./next`; `check`, `statement` and `report`
+build it. The bench in `bench/` measures this surface against Markdown
+(`docs/lean-spec-3-plan.md`, section 3).
 
 ## Process skills
 

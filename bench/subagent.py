@@ -2,7 +2,7 @@
 prepares a workspace, hands each stage prompt to a subagent, records what the
 subagent's completion notice reports, then scores.
 
-  python3 bench/subagent.py prep  TASK LANG ARM SEED [MODEL]   -> prompts.json
+  python3 bench/subagent.py prep  TASK LANG ARM SEED [MODEL] [BAR]   -> prompts.json
   python3 bench/subagent.py stage RUN_ID STAGE TOKENS TOOL_USES WALL_MS
   python3 bench/subagent.py score RUN_ID
 """
@@ -18,19 +18,19 @@ PREAMBLE = ("You are a coding agent. Your workspace is {ws}. Work ONLY there: st
             "Be economical: no explanations, no summaries. When finished reply DONE.\n\n")
 
 
-def prep(task, lang, arm, seed, model="haiku"):
-    run_id = f"{task}-{lang}-{arm}-{model}-s{seed}"
+def prep(task, lang, arm, seed, model="haiku", bar=None):
+    run_id = f"{task}-{lang}-{arm}{'.' + bar if bar else ''}-{model}-s{seed}"
     rdir = RUNS / run_id
     if rdir.exists():
         shutil.rmtree(rdir)
     ws = rdir / "ws"
     spec = json.loads((BENCH / "tasks" / task / "task.json").read_text())
-    brief = workspace.make(ws, task, arm, lang)
+    brief = workspace.make(ws, task, arm, lang, bar)
     pre = PREAMBLE.format(ws=ws)
     prompts = [{"stage": "all", "prompt": pre + brief + "\n\nTASK\n" + spec["stages"][0]["text"]}]
     (rdir / "prompts.json").write_text(json.dumps(prompts, indent=1))
     (ws / "BRIEF.txt").write_text(prompts[0]["prompt"])
-    meta = {"run": run_id, "task": task, "lang": lang, "arm": arm, "model": model, "seed": int(seed),
+    meta = {"run": run_id, "task": task, "lang": lang, "arm": arm, "bar": bar, "model": model, "seed": int(seed),
             "driver": "subagent", "stages": []}
     (rdir / "meta.json").write_text(json.dumps(meta, indent=1))
     print(run_id)

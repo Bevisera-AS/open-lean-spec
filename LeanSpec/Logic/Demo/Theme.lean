@@ -13,6 +13,11 @@ namespace LeanSpec.Logic.Demo.Theme
 
 open LeanSpec.Logic
 
+/- The implementation below is a model of an app, not its code, so no row can be
+proved of a `@[shipped]` product. The spec says so: its bar is `evidenced`, and the
+mark reads `lean-spec-verified at evidenced`. -/
+spec_bar evidenced
+
 inductive Mode where
   | light
   | dark
@@ -129,8 +134,13 @@ example : impl.mode (impl.toggle (impl.initial .light)) = .dark := rfl
 
 spec_statement statement for LeanSpec.Logic.Demo.Theme
 
--- The UI here is a model of an app, not its code: four rows are `model`.
+-- The UI here is a model of an app, not its code: four rows are `model`, which
+-- meets `evidenced` and would not meet `proved`.
 #guard statement.verified
+#guard statement.mark == "lean-spec-verified at evidenced"
+#guard statement.rows.all (·.bar == .evidenced)
+#guard statement.rows.all (·.kernelMeets)
+#guard !(statement.rows.all fun r => !r.gaps.any (Gap.blocksAt .proved))
 #guard statement.rows.size == 5
 #guard statement.statusOf ``switchesToLight == "model"
 #guard statement.gapsOf ``persistsAcrossRestart == #[.modelOnly]

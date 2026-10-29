@@ -112,9 +112,32 @@ def round5 : List Finding := [
 ]
 #guard round5.all (fun f => 1 ≤ f.severity ∧ f.severity ≤ 3 ∧ f.note ≠ "")
 
+/-- Round 6 pilot 2026-10-27: the Lean target on the lean-agent driver with glm-5.3-flash
+and glm-5.2, `core` arm, seed 11, tasks metno, forcing, nasjonale, mortgage. None of the
+four runs completed; two never wrote a spec. Haiku and Sonnet completed all 21 of their
+Lean-target runs in rounds 1 to 4b with theorems, so this is the first look at the proof
+surface on a model that cannot carry it. -/
+def round6 : List Finding := [
+  ⟨"metno-lean-core-glm53flashla-s11", "-", .flaw, 3, "transcript: 24 builds, 48 `depends on sorryAx` errors, 3 test runs",
+   "the program passed every example at base (11) and cr1 (17), but a sorry'd @[evidence] theorem in Prog.lean fails `lake build prog`, so test and ./next were blocked by proofs the rows did not need to close; cr2 was never finished"⟩,
+  ⟨"metno-lean-core-glm53flashla-s11", "-", .flaw, 2, "Prog.lean: 19 theorems, 15 tagged @[evidence]",
+   "fifteen @[evidence] theorems were attempted for five requirements whose seventeen examples already covered them; every row would have closed `tested` with none"⟩,
+  ⟨"mortgage-lean-core-glm52la-s11", "-", .flaw, 3, "transcript: 32 builds, 1 test run (5/5), no ./next",
+   "the base program passed its examples once; every later call went to theorems (27 sorryAx, 8 unknown identifier, 6 omega failures) and ./next was never run, so no change request was released; the reviewer scored the unreleased R5 and R6 as unimplemented"⟩,
+  ⟨"forcing-lean-core-glm53flashla-s11", "-", .flaw, 2, "transcript: 8 calls, `repair truncated` x8, stop truncated",
+   "the driver stopped after eight truncated completions (lean-agent classifies truncation as fatal); the model tried to answer the long task in one reply and wrote no file; not a data point"⟩,
+  ⟨"forcing-lean-core-glm53flashla-s11", "-", .flaw, 3, "findings.json",
+   "the reviewer returned findings about a Java codebase with a JWT secret for a workspace holding only the template; the fail-closed contract checked the shape of a Finding, not that its evidence location exists in the workspace"⟩,
+  ⟨"nasjonale-lean-core-glm52la-s11", "-", .flaw, 2, "transcript: 7 calls, stop truncated",
+   "stopped after seven truncated completions before any file was written; not a data point"⟩,
+  ⟨"round6-glm-lean", "-", .flaw, 2, "bench/results/results.jsonl",
+   "`mortgage-lean-core-glm53flashla-s11` is in results.jsonl twice, with 2 and 3 calls and no spec: a run refused at its first calls was scored and appended twice; the once-per-run-id rule from the step 7a log is still open"⟩
+]
+#guard round6.all (fun f => 1 ≤ f.severity ∧ f.severity ≤ 3 ∧ f.note ≠ "")
+
 #guard findings.all (fun f => 1 ≤ f.severity ∧ f.severity ≤ 3 ∧ f.run ≠ "" ∧ f.note ≠ "")
 
 -- Every finding of every round is well-formed and becomes a reflection.
-#guard (findings ++ round2 ++ round3 ++ round4 ++ round4b ++ round5).all fun f => f.wellFormed && f.converts
+#guard (findings ++ round2 ++ round3 ++ round4 ++ round4b ++ round5 ++ round6).all fun f => f.wellFormed && f.converts
 
 end Bench

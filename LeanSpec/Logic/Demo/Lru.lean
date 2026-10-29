@@ -129,6 +129,9 @@ spec_statement statement for LeanSpec.Logic.Demo.Lru
 #guard (statement.row? ``readsBackWhatItStores).map (·.level) == some .user
 -- The JSON row closes only in `spec report`, by a test run against the program.
 #guard statement.statusOf ``putGetIO == "open"
+#guard (statement.row? ``putGetIO).map (·.bar) == some .tested
+#guard (statement.row? ``getAfterPut).map (·.bar) == some .proved
 #guard statement.verified
+#guard statement.mark == "lean-spec-verified at proved"
 
 end LeanSpec.Logic.Demo.Lru

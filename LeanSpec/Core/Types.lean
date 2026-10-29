@@ -50,7 +50,8 @@ structure ReqView where
   post      : Option (Json → Json → Bool) := none
   /-- `@[satisfies]` theorems, each with whether it quantifies over an input. -/
   witnesses : List (String × Bool) := []
-  /-- `@[evidence]` theorems, each with whether it quantifies over an input. -/
-  evidence  : List (String × Bool) := []
+  /-- `@[evidence]` theorems: `(name, general, sketch)`; general when it quantifies
+  over an input, a sketch when it depends on `sorry`. -/
+  evidence  : List (String × Bool × Bool) := []
 
 end LeanSpec.Core

@@ -1,14 +1,14 @@
 module
 
 public import LeanSpec.Reflection
-public import LeanSpec.WikiAccess
-public import LeanSpec.Validated
-public import LeanSpec.Determination
-public import LeanSpec.Kb
+public import LeanKb.WikiAccess
+public import LeanKb.Validated
+public import LeanKb.Determination
+public import LeanKb.Kb
 public meta import LeanSpec.Reflection
-public meta import LeanSpec.WikiAccess
-public meta import LeanSpec.Determination
-public meta import LeanSpec.Kb
+public meta import LeanKb.WikiAccess
+public meta import LeanKb.Determination
+public meta import LeanKb.Kb
 public meta import LeanUtil
 
 /-!

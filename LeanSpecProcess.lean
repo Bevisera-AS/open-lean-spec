@@ -1,6 +1,6 @@
 module
 
-public import LeanSpec.Validated
+public import LeanKb.Validated
 public import LeanSpec.Codec.Applicative
 public import LeanSpec.ProcessSkill
 public import LeanSpec.Skillset

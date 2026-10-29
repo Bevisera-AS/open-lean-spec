@@ -12,7 +12,9 @@ type is that `Prop` applied to an implementation. A counter-model is a theorem
 the `Prop`, and a docstring is a label only.
 
 - `@[requirement must]` / `@[requirement should]` on `def R : Sig → Prop`;
-  `@[requirement must user]` for a user-level requirement (default `system`)
+  `@[requirement must user]` for a user-level requirement (default `system`);
+  `@[requirement must proved]` sets the bar, how far its evidence must reach
+  (`tested`, `evidenced`, `proved`); `spec_bar evidenced` sets the spec's default
 - `@[refines]` on `theorem t : … → R₁ S → R₂ S → U S`: the system requirements
   among the premises refine the user requirement `U`; `U` closes when they do
 - `@[satisfies]` on `theorem t : R impl` (or `… → R impl`)
@@ -22,6 +24,9 @@ the `Prop`, and a docstring is a label only.
 - `@[example R]` on `def e : Ex`: the requirement at one point, run by `spec test`
 - `@[evidence R₁ R₂]` on a theorem about the product's functions: supporting
   evidence for those requirements, linked by name, never a proof of them
+
+A theorem tagged `@[evidence]` or `@[refutes]` that depends on `sorry` is a
+*sketch*: it is recorded and reported, and counts for nothing at any bar.
 
 For a black-box program the signature is `LeanSpec.Core.IOSig` and a requirement
 is `Req.holds [examples]` or `IOReq pre post` (`LeanSpec/Core/Types.lean`).
@@ -61,6 +66,39 @@ def Level.text : Level → String
   | .system => "system"
   | .user => "user"
 
+/-- How far the evidence for a requirement must reach before its row is met.
+`tested`: every example passes against the program (`report` runs them).
+`evidenced`: tested, and a sorry-free `@[evidence]` theorem that quantifies over
+an input, or a witness. `proved`: a sorry-free `@[satisfies]` theorem about the
+`@[shipped]` product. A proof meets every bar; a sketch meets none. Set per
+requirement (`@[requirement must proved]`) or for the spec (`spec_bar evidenced`);
+without either, a requirement over `IOSig` is held to `tested` and any other to
+`proved`. -/
+inductive Bar where
+  | tested
+  | evidenced
+  | proved
+  deriving Repr, DecidableEq, Inhabited, ToExpr
+
+def Bar.text : Bar → String
+  | .tested => "tested"
+  | .evidenced => "evidenced"
+  | .proved => "proved"
+
+def Bar.rank : Bar → Nat
+  | .tested => 0
+  | .evidenced => 1
+  | .proved => 2
+
+def Bar.parse? : String → Option Bar
+  | "tested" => some .tested
+  | "evidenced" => some .evidenced
+  | "proved" => some .proved
+  | _ => none
+
+/-- The weaker of two bars. -/
+def Bar.min (a b : Bar) : Bar := if a.rank ≤ b.rank then a else b
+
 /-- Criterion `R` holds of `impl` by a person's judgement. The constructor is
 private, so outside this file a `SignOff` exists only as a hypothesis (the proof
 waits for one) or as a `@[sign_off]` axiom (a named person gave one). Either way
@@ -70,15 +108,20 @@ structure SignOff {Sig : Sort u} (R : Sig → Prop) (impl : Sig) : Prop where
   holds : R impl
 
 inductive Entry where
-  | requirement (decl : Name) (strength : Strength) (level : Level)
+  /-- `bar` is the one written on the attribute, if any. -/
+  | requirement (decl : Name) (strength : Strength) (level : Level) (bar : Option Bar)
   | witness (thm req : Name)
-  | counter (thm req : Name)
+  /-- `sketch` when the counter-model depends on `sorry`: listed, never counted. -/
+  | counter (thm req : Name) (sketch : Bool)
+  /-- `spec_bar b`: the default for every requirement without a bar of its own. -/
+  | defaultBar (bar : Bar)
   | shipped (decl : Name)
   | signOff (ax req : Name) (signer : Name) (digest : String)
   /-- `@[example req] def decl : Ex`. -/
   | exampleOf (decl req : Name)
-  /-- `@[evidence req] theorem thm`; `general` when it quantifies over an input. -/
-  | supporting (thm req : Name) (general : Bool)
+  /-- `@[evidence req] theorem thm`; `general` when it quantifies over an input,
+  `sketch` when it depends on `sorry`. -/
+  | supporting (thm req : Name) (general sketch : Bool)
   /-- `@[refines] theorem thm : … → child S → … → parent S`. -/
   | refinement (thm parent : Name) (children : Array Name)
   deriving Inhabited
@@ -91,17 +134,37 @@ initialize specExt : SimplePersistentEnvExtension Entry (Array Entry) ←
 
 def requirements (env : Environment) : Array (Name × Strength × Level) :=
   (specExt.getState env).filterMap fun
-    | .requirement d s l => some (d, s, l)
+    | .requirement d s l _ => some (d, s, l)
     | _ => none
+
+/-- The bar written on the requirement's attribute, if any. -/
+def declaredBar (env : Environment) (req : Name) : Option Bar :=
+  (specExt.getState env).findSome? fun
+    | .requirement d _ _ b => if d == req then b else none
+    | _ => none
+
+/-- The spec's default bar: the last `spec_bar` seen. -/
+def defaultBar (env : Environment) : Option Bar :=
+  (specExt.getState env).foldl (init := none) fun acc e =>
+    match e with
+    | .defaultBar b => some b
+    | _ => acc
 
 def witnesses (env : Environment) : Array (Name × Name) :=
   (specExt.getState env).filterMap fun
     | .witness t r => some (t, r)
     | _ => none
 
+/-- Sorry-free counter-models, `(theorem, requirement)`. -/
 def counters (env : Environment) : Array (Name × Name) :=
   (specExt.getState env).filterMap fun
-    | .counter t r => some (t, r)
+    | .counter t r false => some (t, r)
+    | _ => none
+
+/-- Counter-models that depend on `sorry`: sketches. -/
+def sketchedCounters (env : Environment) : Array (Name × Name) :=
+  (specExt.getState env).filterMap fun
+    | .counter t r true => some (t, r)
     | _ => none
 
 def shippedDecls (env : Environment) : Array Name :=
@@ -121,10 +184,10 @@ def examplesOf (env : Environment) : Array (Name × Name) :=
     | .exampleOf d r => some (d, r)
     | _ => none
 
-/-- `(theorem, requirement, general)`. -/
-def supporting (env : Environment) : Array (Name × Name × Bool) :=
+/-- `(theorem, requirement, general, sketch)`. -/
+def supporting (env : Environment) : Array (Name × Name × Bool × Bool) :=
   (specExt.getState env).filterMap fun
-    | .supporting t r g => some (t, r, g)
+    | .supporting t r g sk => some (t, r, g, sk)
     | _ => none
 
 /-- `(theorem, parent, children)`. -/
@@ -219,7 +282,7 @@ partial def isGeneral (t : Expr) : MetaM Bool :=
 private def isRegistered (env : Environment) (r : Name) : Bool :=
   (requirements env).any (·.1 == r)
 
-syntax (name := requirementAttr) "requirement " ident (ident)? : attr
+syntax (name := requirementAttr) "requirement " ident ident* : attr
 
 initialize registerBuiltinAttribute {
   name := `requirementAttr
@@ -231,12 +294,23 @@ initialize registerBuiltinAttribute {
       | "must" => pure Strength.must
       | "should" => pure Strength.should
       | _ => throwError "expected `@[requirement must]` or `@[requirement should]`, optionally followed by `user`"
-    let level ← match stx[2].getNumArgs with
-      | 0 => pure Level.system
-      | _ => match stx[2][0].getId.toString with
-        | "system" => pure Level.system
-        | "user" => pure Level.user
-        | other => throwError "unknown level `{other}`; expected `system` or `user`"
+    -- After the strength: a level (`system`, `user`) and a bar (`tested`,
+    -- `evidenced`, `proved`), each at most once, in either order.
+    let mut level? : Option Level := none
+    let mut bar : Option Bar := none
+    for w in stx[2].getArgs do
+      match w.getId.toString with
+      | "system" | "user" =>
+        if level?.isSome then throwError "@[requirement]: the level is given twice"
+        level? := some (if w.getId.toString == "user" then .user else .system)
+      | other =>
+        match Bar.parse? other with
+        | some b =>
+          if bar.isSome then throwError "@[requirement]: the bar is given twice"
+          bar := some b
+        | none =>
+          throwError "unknown word `{other}`; expected a level (`system`, `user`) or a bar (`tested`, `evidenced`, `proved`)"
+    let level := level?.getD .system
     let some info := (← getEnv).find? decl | throwError "unknown {decl}"
     unless info matches .defnInfo _ do
       throwError "@[requirement] goes on a `def R : Sig → Prop`, not a {decl}"
@@ -244,8 +318,15 @@ initialize registerBuiltinAttribute {
       let ok ← forallTelescopeReducing info.type fun xs body =>
         pure (xs.size ≥ 1 && body.isProp)
       unless ok do throwError "@[requirement] {decl} must have type `Sig → Prop`"
-    modifyEnv (specExt.addEntry · (.requirement decl strength level))
+    modifyEnv (specExt.addEntry · (.requirement decl strength level bar))
 }
+
+/-- `spec_bar evidenced`: the bar for every requirement in this spec that does not
+set its own. The last one seen wins; an imported spec's default carries over. -/
+elab "spec_bar " b:ident : command => do
+  let some bar := Bar.parse? b.getId.toString
+    | throwError "spec_bar: expected `tested`, `evidenced` or `proved`"
+  modifyEnv (specExt.addEntry · (.defaultBar bar))
 
 private def registerEvidence (decl : Name) (negated : Bool) : AttrM Unit := do
   let some info := (← getEnv).find? decl | throwError "unknown {decl}"
@@ -255,11 +336,11 @@ private def registerEvidence (decl : Name) (negated : Bool) : AttrM Unit := do
       else "@[satisfies] needs a statement `R impl`")
   unless isRegistered (← getEnv) r do
     throwError "{decl} is about {r}, which is not a @[requirement]"
-  -- A counter-model reaches `gaps` as a count, not inspected, so it is checked here.
-  -- A witness with `sorry` is kept and reported as `usesSorry`, which blocks its row.
-  if negated && (← collectAxioms decl).contains ``sorryAx then
-    throwError "@[refutes]: {decl} depends on sorryAx; a sorry'd counter-model rules nothing out"
-  modifyEnv (specExt.addEntry · (if negated then .counter decl r else .witness decl r))
+  -- A witness with `sorry` is kept and reported as `usesSorry`, which blocks its
+  -- row. A counter-model with `sorry` is a sketch: listed, never counted, so the
+  -- row stays `vacuous`.
+  let sketch := (← collectAxioms decl).contains ``sorryAx
+  modifyEnv (specExt.addEntry · (if negated then .counter decl r sketch else .witness decl r))
 
 /-- The parent and children of a refinement theorem: the conclusion `U S` names
 the parent; every premise `R x…` whose head is a registered requirement is a child. -/
@@ -359,19 +440,18 @@ initialize registerBuiltinAttribute {
 
 initialize registerBuiltinAttribute {
   name := `evidenceAttr
-  descr := "a sorry-free theorem about the product, linked to the requirements it supports"
+  descr := "a theorem about the product, linked to the requirements it supports; with sorry it is a sketch"
   applicationTime := .afterTypeChecking
   add := fun decl stx _ => do
     let some info := (← getEnv).find? decl | throwError "unknown {decl}"
     unless info matches .thmInfo _ do throwError "@[evidence] goes on a theorem"
-    if (← collectAxioms decl).contains ``sorryAx then
-      throwError "@[evidence]: {decl} depends on sorryAx; a sorry'd proof is not evidence"
+    let sketch := (← collectAxioms decl).contains ``sorryAx
     let general ← (isGeneral info.type).run'
     for r in stx[1].getArgs do
       let req ← realizeGlobalConstNoOverload r
       unless isRegistered (← getEnv) req do
         throwError "{decl} is evidence for {req}, which is not a @[requirement]"
-      modifyEnv (specExt.addEntry · (.supporting decl req general))
+      modifyEnv (specExt.addEntry · (.supporting decl req general sketch))
 }
 
 /-! ## Gaps: one function, every reason a requirement is not proved -/
@@ -453,13 +533,21 @@ def gaps (ws : Array WitnessFacts) (sos : Array SignOffFacts) (counters : Nat)
   let g := if !ws.isEmpty && !ws.any (·.shipped) then g.push .modelOnly else g
   if counters == 0 then g.push .vacuous else g
 
-/-- Whether a gap keeps the row open. A current sign-off, a model-only proof,
-vacuity and a refinement from closed children are reported, not blocking: each
-is a named limit a reader can weigh. -/
+/-- Whether a gap keeps the row from closing by the kernel, below the bar
+`proved`. A current sign-off, a model-only proof, vacuity and a refinement from
+closed children are reported, not blocking: each is a named limit a reader can
+weigh. -/
 def Gap.blocks : Gap → Bool
   | .noWitness | .usesSorry | .nonStandardAxiom _ | .awaitingSignOff | .staleSignOff _
   | .unrefined | .childOpen _ => true
   | .signedOff _ | .modelOnly | .vacuous | .viaRefinement _ => false
+
+/-- Whether a gap keeps the kernel side of a row from meeting `bar`. At `proved`
+a proof of a model only is not a proof of the product, so `model-only` blocks
+too; `vacuous` is reported at every bar. -/
+def Gap.blocksAt (bar : Bar) : Gap → Bool
+  | .modelOnly => bar == .proved
+  | g => g.blocks
 
 def Gap.text : Gap → String
   | .noWitness => "no-witness"
@@ -486,10 +574,22 @@ structure WitnessRow where
   general : Bool
   deriving Repr, Inhabited, ToExpr
 
+/-- One `@[evidence]` theorem on a row. -/
+structure EvidenceRow where
+  thm : Name
+  /-- Quantifies over an input. -/
+  general : Bool
+  /-- Depends on `sorry`: listed, never counted. -/
+  sketch : Bool
+  deriving Repr, Inhabited, ToExpr, BEq
+
 structure Row where
   req : Name
   strength : Strength
   level : Level
+  /-- How far the evidence must reach: written on the attribute, the spec's
+  `spec_bar`, or the default for the signature. -/
+  bar : Bar
   digest : String
   label : String
   prop : String
@@ -498,15 +598,28 @@ structure Row where
   /-- `@[example]` declarations attached by name. -/
   examples : Array Name
   witnesses : Array WitnessRow
-  /-- `@[evidence]` theorems, each with whether it is general. -/
-  evidence : Array (Name × Bool)
+  /-- `@[evidence]` theorems. -/
+  evidence : Array EvidenceRow
   /-- `@[refines]` theorems concluding this requirement, with their children. -/
   refinedBy : Array (Name × Array Name)
+  /-- Sorry-free counter-models with the model they refute. -/
   counters : Array (Name × String)
+  /-- Counter-models that depend on `sorry`. -/
+  sketchedCounters : Array Name
   gaps : Array Gap
   deriving Repr, Inhabited, ToExpr
 
+/-- Closed by the kernel below the bar `proved`: no blocking gap. -/
 def Row.proved (r : Row) : Bool := !r.gaps.any Gap.blocks
+
+/-- The kernel's side of the row's bar: no gap that blocks at it. At `tested`
+and `evidenced` the examples are run by `report`, which has the last word; the
+statement can only say whether the kernel's part is in place. -/
+def Row.kernelMeets (r : Row) : Bool := !r.gaps.any (Gap.blocksAt r.bar)
+
+/-- Sorry-free `@[evidence]` that quantifies over an input: what `evidenced` asks
+for beside the tests. -/
+def Row.generalEvidence (r : Row) : Bool := r.evidence.any fun e => e.general && !e.sketch
 
 /-- `open`, or how far a closed row's evidence reaches: `signed` (a person's
 judgement), `model` (proved of a model, not the shipped code), `refined` (closed
@@ -524,9 +637,18 @@ structure Statement where
   rows : Array Row
   deriving Repr, Inhabited, ToExpr
 
-/-- The mark holds when every `must` row is closed. -/
+/-- The mark holds when the kernel's side of every `must` row meets its bar. -/
 def Statement.verified (s : Statement) : Bool :=
-  s.rows.all fun r => r.strength == .should || r.proved
+  s.rows.all fun r => r.strength == .should || r.kernelMeets
+
+/-- The weakest bar among the `must` rows: what the mark is worth. -/
+def Statement.weakestBar (s : Statement) : Bar :=
+  (s.rows.filter (·.strength == .must)).foldl (fun acc r => acc.min r.bar) .proved
+
+/-- `lean-spec-verified at <weakest bar>`, or `none`. The bar is in the mark so a
+statement that is all `tested` says so in one word. -/
+def Statement.mark (s : Statement) : String :=
+  if s.verified then s!"lean-spec-verified at {s.weakestBar.text}" else "none"
 
 def Statement.row? (s : Statement) (req : Name) : Option Row :=
   s.rows.find? (·.req == req)
@@ -545,14 +667,16 @@ private def scopeText (general : Bool) : String :=
 /-- Rendered one way for humans. Nothing reads this text back. -/
 def Statement.render (s : Statement) : String := Id.run do
   let mut out := "schema lean-spec.verification/3\n"
-  out := out ++ s!"mark {if s.verified then "lean-spec-verified" else "none"}\n"
+  out := out ++ s!"mark {s.mark}\n"
   out := out ++ s!"toolchain {s.toolchain}\n"
   out := out ++ s!"spec-digest {s.digest}\n"
   for r in s.rows do
     out := out ++ s!"requirement {r.req}\n"
     out := out ++ s!"  strength {r.strength.text}\n"
     out := out ++ s!"  level {r.level.text}\n"
+    out := out ++ s!"  bar {r.bar.text}\n"
     out := out ++ s!"  status {r.status}\n"
+    out := out ++ s!"  kernel-meets {r.kernelMeets}\n"
     out := out ++ s!"  kind {r.kind}\n"
     out := out ++ s!"  digest {r.digest}\n"
     unless r.label.isEmpty do out := out ++ s!"  label {q r.label}\n"
@@ -566,12 +690,14 @@ def Statement.render (s : Statement) : String := Id.run do
       let axs := if w.axioms.isEmpty then "(none)" else " ".intercalate (w.axioms.toList.map toString)
       out := out ++ s!"    axioms {axs}\n"
       if w.awaiting then out := out ++ "    awaits sign-off\n"
-    for (t, g) in r.evidence do
-      out := out ++ s!"  evidence {t} ({scopeText g})\n"
+    for e in r.evidence do
+      out := out ++ s!"  evidence {e.thm} ({scopeText e.general}{if e.sketch then ", sketch" else ""})\n"
     for (t, cs) in r.refinedBy do
       out := out ++ s!"  refined-by {t}\n    from {" ".intercalate (cs.toList.map toString)}\n"
     for (c, m) in r.counters do
       out := out ++ s!"  refuted-by {c}\n    model {m}\n"
+    for c in r.sketchedCounters do
+      out := out ++ s!"  sketched-counter {c}\n"
     for g in r.gaps do
       out := out ++ s!"  gap {g.text}\n"
   return out
@@ -599,6 +725,24 @@ def kindOf (req : Name) : MetaM String := do
   | (some _, _) => pure "examples"
   | (_, some _) => pure "io"
   | _ => pure "prop"
+
+/-- Whether the requirement's signature is `IOSig`: a black-box program. -/
+def overIOSig (req : Name) : MetaM Bool := do
+  let some info := (← getEnv).find? req | return false
+  forallTelescopeReducing info.type fun xs _ => do
+    match xs[0]? with
+    | some x => return (← inferType x).isConstOf ``LeanSpec.Core.IOSig
+    | none => return false
+
+/-- The bar a requirement is held to: its own, else the spec's `spec_bar`, else
+`tested` over `IOSig` and `proved` over any other signature. -/
+def barOf (req : Name) : MetaM Bar := do
+  let env ← getEnv
+  match declaredBar env req with
+  | some b => return b
+  | none => match defaultBar env with
+    | some b => return b
+    | none => return if ← overIOSig req then .tested else .proved
 
 /-- The facts a row's gaps are computed from, kept so refinement can be
 re-evaluated once every row's status is known. -/
@@ -650,13 +794,15 @@ def collect (ns : Name) : MetaM Statement := do
       if p == req then some (t, cs) else none
     facts := facts.push { witnesses := wfacts, signOffs := sos, counters := crows.size, level, refinedBy }
     rows := rows.push {
-      req, strength, level, digest, label, prop := ← pp info.value!
+      req, strength, level, bar := ← barOf req, digest, label, prop := ← pp info.value!
       kind := ← kindOf req
       examples := (examplesOf env).filterMap fun (d, r) => if r == req then some d else none
       witnesses := wrows
-      evidence := (supporting env).filterMap fun (t, r, g) => if r == req then some (t, g) else none
+      evidence := (supporting env).filterMap fun (t, r, g, sk) =>
+        if r == req then some { thm := t, general := g, sketch := sk } else none
       refinedBy
       counters := crows
+      sketchedCounters := (sketchedCounters env).filterMap fun (t, r) => if r == req then some t else none
       gaps := gaps wfacts sos crows.size level #[] }
   -- Refinement: a child is open until its own row closes; iterate to a fixpoint.
   for _ in [:rows.size + 1] do
@@ -714,7 +860,7 @@ elab "spec%" : term => do
     for (t, r) in witnesses env do
       if r == req then
         wits := wits ++ [(t.toString, ← isGeneral (← getConstInfo t).type)]
-    let evs := ((supporting env).filter (·.2.1 == req)).toList.map fun (t, _, g) => (t.toString, g)
+    let evs := ((supporting env).filter (·.2.1 == req)).toList.map fun (t, _, g, sk) => (t.toString, g, sk)
     views := views.push (← mkAppM ``LeanSpec.Core.ReqView.mk
       #[toExpr req.toString, toExpr label, toExpr strength.text, toExpr level.text,
         exsE, postE, toExpr wits, toExpr evs])

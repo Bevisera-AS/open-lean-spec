@@ -15,7 +15,7 @@ public section
 skill reflect := {
   id := ⟨"process.reflect", by decide +kernel⟩
   oneLiner := ⟨"End-of-task reflection: record durable learning and reviewer findings in the Wiki store.", by decide +kernel⟩
-  purpose := ⟨"Consolidate agent experience into the Wiki store, not chat scrollback or prose files.", by decide +kernel⟩
+  purpose := ⟨"Consolidate agent experience into the Wiki store, not chat scrollback.", by decide +kernel⟩
   rules := ⟨#[
     ⟨"Ask whether the task revealed durable agent-experience knowledge.", by decide +kernel⟩,
     ⟨"Capture it as a `Reflection` (kind: pattern / failureMode / strategy) and `Wiki.record` it, consolidating with an existing same-learning entry, never duplicating.", by decide +kernel⟩,
@@ -26,7 +26,7 @@ skill reflect := {
   ], by decide +kernel⟩
   antipatterns := #[
     ⟨"Relying on prior chat to remember current spec or gate state.", by decide +kernel⟩,
-    ⟨"Logging durable learning as prose in a discovery file instead of consolidating it in the Wiki store.", by decide +kernel⟩
+    ⟨"Changing a skill, requirement or steering straight from a reflection instead of setting `promoted` for the human gate.", by decide +kernel⟩
   ]
 }
 

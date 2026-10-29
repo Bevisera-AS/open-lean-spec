@@ -1,8 +1,8 @@
 module
 
-public import LeanSpec.Kb
-public import LeanSpec.Determination
-public import LeanSpec.WikiAccess
+public import LeanKb.Kb
+public import LeanKb.Determination
+public import LeanKb.WikiAccess
 public import LeanSpec.Wiki
 public import LeanSpec.WikiStore
 public import LeanSpec.Codec.Reflection

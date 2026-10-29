@@ -1,13 +1,15 @@
 """One benchmark run: a model builds a task through its stages in a fresh
 workspace via headless `claude -p`, then the workspace is scored.
 
-  python3 bench/run.py TASK LANG ARM SEED [--model haiku] [--gate]
+  python3 bench/run.py TASK LANG ARM SEED [--model haiku] [--gate] [--bar tested|evidenced|proved]
 
 ARM is md, core or logic (`lean` is the old name of core). With --gate every
 stage is two phases: the builder proposes the spec change alone, a reviewer
 (a fresh session with Read only) accepts it or returns it with notes, at most
 two returns, and only then the builder applies it. The reviewer's tokens are
-added to the stage's usage and kept apart under `gate`.
+added to the stage's usage and kept apart under `gate`. With --bar the spec
+template says `spec_bar BAR` and the Lean target's brief asks for what the bar
+needs; the run id carries the bar (`core.evidenced`).
 """
 import argparse, json, shutil, subprocess, sys, time
 from pathlib import Path
@@ -98,15 +100,17 @@ def main():
     ap.add_argument("arm", choices=["md", "lean", "core", "logic"]); ap.add_argument("seed", type=int)
     ap.add_argument("--model", default="haiku")
     ap.add_argument("--gate", action="store_true", help="a reviewer accepts each spec change before apply")
+    ap.add_argument("--bar", choices=["tested", "evidenced", "proved"], default=None,
+                    help="how far each requirement's evidence must reach (Spec.lean gets `spec_bar BAR`)")
     a = ap.parse_args()
     arm = "core" if a.arm == "lean" else a.arm
-    run_id = f"{a.task}-{a.lang}-{arm}{'g' if a.gate else ''}-{a.model}-s{a.seed}"
+    run_id = f"{a.task}-{a.lang}-{arm}{'g' if a.gate else ''}{'.' + a.bar if a.bar else ''}-{a.model}-s{a.seed}"
     rdir = RUNS / run_id
     if rdir.exists():
         shutil.rmtree(rdir)
     ws = rdir / "ws"
     task = json.loads((BENCH / "tasks" / a.task / "task.json").read_text())
-    brief = workspace.make(ws, a.task, arm, a.lang)
+    brief = workspace.make(ws, a.task, arm, a.lang, a.bar)
     stages, session, so_far = [], None, []
     for st in task["stages"]:
         change = (brief + "\n\nTASK\n" + st["text"]) if session is None else workspace.CHANGE + st["text"]
@@ -134,7 +138,7 @@ def main():
             break
     for t in Path.home().glob(f".claude/projects/*/{session}.jsonl") if session else []:
         shutil.copy(t, rdir / "transcript.jsonl")
-    meta = {"run": run_id, "task": a.task, "lang": a.lang, "arm": arm, "model": a.model,
+    meta = {"run": run_id, "task": a.task, "lang": a.lang, "arm": arm, "bar": a.bar, "model": a.model,
             "seed": a.seed, "gate": a.gate, "driver": "claude-p", "session": session, "stages": stages}
     (rdir / "meta.json").write_text(json.dumps(meta, indent=1))
     score = check.score(rdir, meta)

@@ -25,6 +25,7 @@ skill proposeChange := {
     ⟨"`lake exe spec check` must pass before review; the `git diff` of Spec.lean and the digests in `lake exe spec report` show the reviewer what changed.", by decide +kernel⟩,
     ⟨"Do not invent behaviour the task does not define; an undefined input is left undefined, not turned into an error case.", by decide +kernel⟩,
     ⟨"If agent experience motivated this change, cite the Wiki reflection(s) in a `PromotionProposal`; a citation to a reflection the Wiki does not hold is refused.", by decide +kernel⟩,
+    ⟨"A change to lean-spec itself is proposed the same way: a `Sig` of what the library exposes, `@[requirement]` Props over it, counter-models and a model that satisfies them, in a module under `LeanSpec/Spec/`; its statement is the review record.", by decide +kernel⟩,
     ⟨"Stop before apply until the reviewer has accepted the change.", by decide +kernel⟩
   ], by decide +kernel⟩
   antipatterns := #[
@@ -32,7 +33,8 @@ skill proposeChange := {
     ⟨"A requirement whose only evidence is that its text is non-empty.", by decide +kernel⟩,
     ⟨"Error behaviour for inputs the task never defines.", by decide +kernel⟩,
     ⟨"Hand-written test scripts beside the examples.", by decide +kernel⟩,
-    ⟨"Starting the program before the spec change is reviewed.", by decide +kernel⟩
+    ⟨"Starting the program before the spec change is reviewed.", by decide +kernel⟩,
+    ⟨"A design proposal for lean-spec written as a Markdown document instead of a spec module.", by decide +kernel⟩
   ]
 }
 

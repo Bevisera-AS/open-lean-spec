@@ -23,8 +23,8 @@ TASKS = ["ratelimit", "mortgage", "lru", "csvclean"]
 ABORT = threading.Event()
 
 
-def one(task, lang, arm, gate, model, seed, dry):
-    run_id = f"{task}-{lang}-{arm}{'g' if gate else ''}-{model}-s{seed}"
+def one(task, lang, arm, gate, model, seed, dry, bar=None):
+    run_id = f"{task}-{lang}-{arm}{'g' if gate else ''}{'.' + bar if bar else ''}-{model}-s{seed}"
     if (RUNS / run_id / "result.json").exists():
         return f"{run_id}: have result, skipped"
     if ABORT.is_set():
@@ -32,6 +32,8 @@ def one(task, lang, arm, gate, model, seed, dry):
     cmd = [sys.executable, str(BENCH / "run.py"), task, lang, arm, str(seed), "--model", model]
     if gate:
         cmd.append("--gate")
+    if bar:
+        cmd += ["--bar", bar]
     if dry:
         return " ".join(cmd)
     t0 = time.time()
@@ -52,15 +54,18 @@ def main():
     ap.add_argument("--gates", default="off,on")
     ap.add_argument("--tasks", default=",".join(TASKS))
     ap.add_argument("--langs", default="py")
+    ap.add_argument("--bars", default="", help="comma list of tested,evidenced,proved; empty for the library default")
     ap.add_argument("-j", type=int, default=3)
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
-    jobs = [(t, l, arm, g == "on", m, s)
+    bars = [b or None for b in a.bars.split(",")]
+    jobs = [(t, l, arm, g == "on", m, s, a.dry, b)
             for m in a.model.split(",") for s in a.seeds for t in a.tasks.split(",")
-            for l in a.langs.split(",") for arm in a.arms.split(",") for g in a.gates.split(",")]
+            for l in a.langs.split(",") for arm in a.arms.split(",") for g in a.gates.split(",")
+            for b in bars]
     print(f"{len(jobs)} runs, {a.j} at a time", flush=True)
     with ThreadPoolExecutor(max_workers=a.j) as ex:
-        for line in ex.map(lambda j: one(*j, a.dry), jobs):
+        for line in ex.map(lambda j: one(*j), jobs):
             print(line, flush=True)
 
 
