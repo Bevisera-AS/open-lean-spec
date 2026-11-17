@@ -10,6 +10,16 @@ axioms (`propext`, `Classical.choice`, `Quot.sound`) — no `sorry`. From 1.1.0 
 no `native_decide` either, and `lake check --paranoid` accepts the
 development (see `LeanSpec/Kb.lean`'s trust-boundary note).
 
+## [Unreleased]
+
+### Added
+- `LeanSpec/Spec/Layering.lean`: the layering of the five packages (lean-spec,
+  lean-agent, lean-kb, lean-spec-agent, business-kb) as a spec, with the two memory
+  planes, reflect and provenance. `today` is a counter-model and `proposal` a model;
+  every row is `model` until the lakefiles change.
+- `bench/Findings.lean`: `layering`, the findings of the layering review of
+  2026-10-29 (five open, four fixed and kept as experience).
+
 ## [3.1.0] — 2026-10-29
 
 The bar: how proved a requirement must be is the author's to say, and `report`

@@ -135,9 +135,34 @@ def round6 : List Finding := [
 ]
 #guard round6.all (fun f => 1 ≤ f.severity ∧ f.severity ≤ 3 ∧ f.note ≠ "")
 
+/-- Layering review 2026-10-29: not a bench run; the review of the five packages after the
+lean-kb split, against `LeanSpec/Spec/Layering.lean`. `req` names the Layering row. The
+first five are open; the rest were fixed the same day and are kept as experience. -/
+def layering : List Finding := [
+  ⟨"layering-review-2026-10-29", "-", .flaw, 2, "LeanSpec/Spec/Layering.lean statement.mark",
+   "every row is model-only, yet the statement issues `lean-spec-verified at evidenced` while no lakefile has moved: a model meets `evidenced`, so a proposal carries a product's mark"⟩,
+  ⟨"layering-review-2026-10-29", "-", .flaw, 1, "LeanSpec/Spec/Layering.lean today",
+   "the counter-model `today` is written by hand from reading lakefiles and skills; nothing checks it against them, so it can drift silently"⟩,
+  ⟨"layering-review-2026-10-29", "tracesDigestedInLean", .flaw, 2, "business-kb Skills/Knowledge/AgentRun.lean:196 isValid",
+   "an empty promptDigest is still valid; RunReceipt can no longer produce one, but a stored or hand-built receipt can"⟩,
+  ⟨"layering-review-2026-10-29", "provenanceToTrace", .testGap, 2, "LeanSpec/Reflection.lean:100 derivedFrom",
+   "a reflection cites run ids and the store checks only that the id is known, not the content digest of the trace"⟩,
+  ⟨"layering-review-2026-10-29", "promotionThroughCore", .flaw, 2, "business-kb Skills/Evolution/Records.lean GateResult",
+   "the agent plane promotes through its own GateResult, not lean-kb's promote, so the gate attribution and redaction laws do not cover it"⟩,
+  ⟨"layering-review-2026-10-29", "reflectNeverPromotes", .flaw, 3, "business-kb Skills/Defs/Process/ReflectDiscipline.lean:19",
+   "fixed: the skill told the agent to update a skill directly when the home was clear, which Memory.reflect forbids in code; skill text and code must say the same"⟩,
+  ⟨"layering-review-2026-10-29", "tracesDigestedInLean", .flaw, 2, "business-kb Skills/Agents/RunReceipt.lean sha256OfString",
+   "fixed: the prompt digest came from shasum or sha256sum and was empty when neither ran; now LeanAgent.Sha256, pinned by the FIPS vectors in JournalTests"⟩,
+  ⟨"layering-review-2026-10-29", "-", .flaw, 3, "lean-spec-agent lake-manifest.json",
+   "fixed: after the lean-kb split the manifest lacked lean-kb and the package did not build; a package split updates every downstream manifest in the same change"⟩,
+  ⟨"layering-review-2026-10-29", "agentRecordsFreely", .flaw, 2, "LeanSpec/Workflow/Reflect.lean antipatterns",
+   "fixed: process.reflect called a free discovery log an antipattern, so the reviewer read business-kb's intended bottom rung as a defect; the antipattern is now editing a human artifact from a reflection"⟩
+]
+#guard layering.all (fun f => 1 ≤ f.severity ∧ f.severity ≤ 3 ∧ f.note ≠ "")
+
 #guard findings.all (fun f => 1 ≤ f.severity ∧ f.severity ≤ 3 ∧ f.run ≠ "" ∧ f.note ≠ "")
 
 -- Every finding of every round is well-formed and becomes a reflection.
-#guard (findings ++ round2 ++ round3 ++ round4 ++ round4b ++ round5 ++ round6).all fun f => f.wellFormed && f.converts
+#guard (findings ++ round2 ++ round3 ++ round4 ++ round4b ++ round5 ++ round6 ++ layering).all fun f => f.wellFormed && f.converts
 
 end Bench
